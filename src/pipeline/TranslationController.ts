@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia';
 import { TextToTranslateRequest, TextRequestElysiaSchema } from '../schemas/request';
-import { TextResponse, TextResponseSchema } from '../schemas/response';
+import { TextResponseElysia, TextResponseElysiaSchema } from '../schemas/response';
 import { parseOrThrow } from '../schemas/validation';
 
 const TranslationController = new Elysia()
@@ -10,7 +10,7 @@ const TranslationController = new Elysia()
             try {
                 const translationResult = await fakeTranslate(body);
                 set.status = 200;
-                return parseOrThrow(TextResponseSchema, translationResult);
+                return parseOrThrow(TextResponseElysiaSchema, translationResult);
             } catch (error) {
                 set.status = 400;
                 return { error: (error as Error).message };
@@ -23,7 +23,7 @@ const TranslationController = new Elysia()
 
 export { TranslationController };
 
-async function fakeTranslate(request: TextToTranslateRequest): Promise<TextResponse> {
+async function fakeTranslate(request: TextToTranslateRequest): Promise<TextResponseElysia> {
     // Simulate translation delay
     await new Promise((resolve) => setTimeout(resolve, 500));
     return {

@@ -7,3 +7,15 @@ export const TextResponseSchema = z.object({
 });
 
 export type TextResponse = z.infer<typeof TextResponseSchema>;
+
+// Elysia schema equivalent
+
+import { t, Static } from 'elysia';
+
+export const TextResponseElysiaSchema = t.Object({
+  request_id: t.String({ format: 'uuid' }),
+  translatedText: t.String(),
+  glossedText: t.String(),
+});
+
+export type TextResponseElysia = Static<typeof TextResponseElysiaSchema>;
