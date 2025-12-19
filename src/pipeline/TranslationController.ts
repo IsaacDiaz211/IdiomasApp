@@ -1,5 +1,5 @@
-import { Elysia, t } from 'elysia';
-import { TextRequest, TextRequestSchema } from '../schemas/request';
+import { Elysia } from 'elysia';
+import { TextToTranslateRequest, TextRequestElysiaSchema } from '../schemas/request';
 import { TextResponse, TextResponseSchema } from '../schemas/response';
 import { parseOrThrow } from '../schemas/validation';
 
@@ -8,8 +8,7 @@ const TranslationController = new Elysia()
         '/translate', 
         async ({ body, set }) => {
             try {
-                const parsedBody: TextRequest = parseOrThrow(TextRequestSchema, body);
-                const translationResult = await fakeTranslate(parsedBody);
+                const translationResult = await fakeTranslate(body);
                 set.status = 200;
                 return parseOrThrow(TextResponseSchema, translationResult);
             } catch (error) {
@@ -17,13 +16,14 @@ const TranslationController = new Elysia()
                 return { error: (error as Error).message };
             }
         },
+        {
+            body: TextRequestElysiaSchema, 
+        }
     );
 
 export { TranslationController };
 
-//todo : replace with elysia parser
-
-async function fakeTranslate(request: TextRequest): Promise<TextResponse> {
+async function fakeTranslate(request: TextToTranslateRequest): Promise<TextResponse> {
     // Simulate translation delay
     await new Promise((resolve) => setTimeout(resolve, 500));
     return {
@@ -31,4 +31,4 @@ async function fakeTranslate(request: TextRequest): Promise<TextResponse> {
         translatedText: `Translated (${request.l1} -> ${request.l2}): ${request.text}`,
         glossedText: `Glossed version of: ${request.text}`
      };
-}
+};

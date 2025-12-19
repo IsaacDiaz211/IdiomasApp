@@ -3,6 +3,4 @@ export const supportedLanguages = [
   "english",
   "portuguese",
   "chinese",
-] as const;
-
-export type SupportedLanguage = (typeof supportedLanguages)[number];
+];
