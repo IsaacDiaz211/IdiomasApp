@@ -1,32 +1,5 @@
-import { z } from "zod";
 import { supportedLanguages } from "./languages";
 import { t, Static } from 'elysia';
-
-export const TextRequestSchema = z.object({
-  text: z
-    .string()
-    .transform((s) => s.replace(/\s+/g, " ").trim())
-    .refine((s) => s.length > 0, "text must not be empty")
-    .refine((s) => s.length <= 450, `text must be <= 450 chars`),
-
-  l1: z.string().transform((s) => s.trim().toLowerCase()),
-  l2: z.string().transform((s) => s.trim().toLowerCase()),
-}).superRefine((data, ctx) => {
-  if (data.l1 === data.l2) {
-    ctx.addIssue({ code: "custom", path: ["l2"], message: "l2 must be different from l1" });
-  }
-  const allowed = new Set(supportedLanguages);
-  if (!allowed.has(data.l1 as any)) {
-    ctx.addIssue({ code: "custom", path: ["l1"], message: `unsupported l1: ${data.l1}` });
-  }
-  if (!allowed.has(data.l2 as any)) {
-    ctx.addIssue({ code: "custom", path: ["l2"], message: `unsupported l2: ${data.l2}` });
-  }
-});
-
-export type TextRequest = z.infer<typeof TextRequestSchema>;
-
-// Elysia schema equivalent intent to the Zod schema above
 
 const CleanText = t.Transform(
     t.String({
@@ -40,7 +13,7 @@ const CleanText = t.Transform(
     return cleaned;
 }).Encode(value => value);
 
-export const TextRequestElysiaSchema = t.Transform(
+export const TextRequestSchema = t.Transform(
   t.Object({
     text: CleanText,
     l1: t.String(),
@@ -64,4 +37,4 @@ export const TextRequestElysiaSchema = t.Transform(
 }).Encode(data => data);
 
 
-export type TextToTranslateRequest = Static<typeof TextRequestElysiaSchema>;
+export type TextToTranslateRequest = Static<typeof TextRequestSchema>;

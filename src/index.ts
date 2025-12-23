@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { TranslationController } from "./pipeline/TranslationController";
+import { TranslationController } from "./TranslationController";
 
 const app = new Elysia()
     .use(TranslationController)

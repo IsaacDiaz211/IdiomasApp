@@ -1,20 +1,3 @@
-/* A Zod validation helper that throws a detailed error on failure
-import { ZodType } from "zod";
-
-export function parseOrThrow<T>(schema: ZodType<T>, input: unknown): T {
-  const res = schema.safeParse(input);
-  if (!res.success) {
-    const issues = res.error.issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    }));
-    throw Object.assign(new Error("ValidationError"), { issues });
-  }
-  return res.data;
-}*/
-
-// An Elysia validation helper that throws a detailed error on failure
-
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { type TSchema, type Static } from 'elysia'
 
