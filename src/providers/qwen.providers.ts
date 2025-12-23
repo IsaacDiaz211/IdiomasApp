@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import { LLMProvider } from './llm.providers';
 import { interlinearAlphabeticPrompt } from './prompts';
-import { int } from "zod";
+import { GlossedText } from "../schemas/response";
 
 export class QwenProvider implements LLMProvider {
     openai = new OpenAI(
@@ -14,7 +14,7 @@ export class QwenProvider implements LLMProvider {
 
     async main(input: string): Promise<string> {
         const completion = await this.openai.chat.completions.create({
-            model: "qwen-plus",
+            model: process.env.AI_MODEL || "qwen-plus",
             messages: [
                 { role: "system", content: "You are a helpful translator and language expert." },
                 { role: "user", content: input }
@@ -28,8 +28,20 @@ export class QwenProvider implements LLMProvider {
         return await this.main(prompt);
     }
 
-    async glossText(text: string, l1: string, l2: string): Promise<string> {
+    async glossText(text: string, l1: string, l2: string): Promise<GlossedText> {
         const prompt = interlinearAlphabeticPrompt(l1, l2, text);
-        return await this.main(prompt);
+        const response = await this.main(prompt);
+        let originalText: string[] = [];
+        let glossedWords: string[] = [];
+
+        // Simple parsing logic assuming the response format is consistent
+        const lines = response.split('.');
+        originalText = lines[0].split('/').map(word => word.trim());
+        glossedWords = lines[1].split('/').map(word => word.trim());
+
+        return {
+            originalText,
+            glossedWords
+        };
     }
 }
