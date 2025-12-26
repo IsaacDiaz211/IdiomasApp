@@ -35,7 +35,7 @@ export class QwenProvider implements LLMProvider {
         let glossedWords: string[] = [];
 
         // Simple parsing logic assuming the response format is consistent
-        const lines = response.split('.');
+        const lines = response.split('#').map(line => line.trim());
         originalText = lines[0].split('/').map(word => word.trim());
         glossedWords = lines[1].split('/').map(word => word.trim());
 

@@ -5,7 +5,8 @@ const GlossedTextSchema = t.Transform(
     originalText: t.Array(t.String()),
     glossedWords: t.Array(t.String())
   })
-).Decode(data => {
+)
+.Decode(data => {
     if (data.originalText.length !== data.glossedWords.length) {
         throw new Error("originalText and glossedWords must have the same length");
     }
