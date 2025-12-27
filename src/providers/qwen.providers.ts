@@ -1,8 +1,10 @@
 // A implementention using Qwen LLM model
 import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
 import { interlinearAlphabeticPrompt } from './prompts';
-import { GlossedText } from "../schemas/response";
+import { GlossedSentence } from "../schemas/response";
+import { GlossedTextZodSchema } from "../schemas/response";
 
 export class QwenProvider implements LLMProvider {
     openai = new OpenAI(
@@ -28,20 +30,47 @@ export class QwenProvider implements LLMProvider {
         return await this.main(prompt);
     }
 
-    async glossText(text: string, l1: string, l2: string): Promise<GlossedText> {
-        const prompt = interlinearAlphabeticPrompt(l1, l2, text);
-        const response = await this.main(prompt);
-        let originalText: string[] = [];
-        let glossedWords: string[] = [];
+    async glossText(text: string, l1: string, l2: string): Promise<GlossedSentence> {
+        try {
+            const prompt = interlinearAlphabeticPrompt(l1, l2, text);
+            const completion = await this.openai.chat.completions.parse({
+                model: "qwen-plus",
+                messages: [
+                    { role: "system", content: "You are a helpful translator and language expert." },
+                    { role: "user", content: prompt },
+                ],
+                response_format: zodResponseFormat(GlossedTextZodSchema, "glossedText"),
+            });
+            console.log("Glossing completion:", completion.choices[0].message);
+            const glossedTranslation: GlossedSentence | null = completion.choices[0].message.parsed;
 
-        // Simple parsing logic assuming the response format is consistent
-        const lines = response.split('#').map(line => line.trim());
-        originalText = lines[0].split('/').map(word => word.trim());
-        glossedWords = lines[1].split('/').map(word => word.trim());
+            /*let originalText: string[] = [];
+            let glossedWords: string[] = [];
+            console.log("Glossing response:", response);
+            // Simple parsing logic assuming the response format is consistent
+            const lines = response.split('#').map(line => line.trim());
+            originalText = lines[0].split('/').map(word => word.trim());
+            glossedWords = lines[1].split('/').map(word => word.trim());*/
 
-        return {
-            originalText,
-            glossedWords
-        };
+            if (!glossedTranslation) {
+                throw new Error("Failed to parse glossed translation.");
+            }
+            if(glossedTranslation.originalText.length !== glossedTranslation.glossedWords.length) {
+                throw new Error("Parsed glossed translation has mismatched lengths.");
+            }
+
+            glossedTranslation.originalText.map(word => word.trim());
+            glossedTranslation.glossedWords.map(word => word.trim());
+            
+            glossedTranslation.glossedWords
+            return {
+                originalText: glossedTranslation.originalText,
+                glossedWords: glossedTranslation.glossedWords
+            };
+        } catch (error) {
+            console.error("Error glossing text:", error);
+            throw error;
+        }
+        
     }
 }

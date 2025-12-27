@@ -1,6 +1,14 @@
 import { t, Static } from 'elysia';
+import { z } from 'zod';
 
-const GlossedTextSchema = t.Transform(
+const GlossedTextZodSchema = z.object({
+  originalText: z.array(z.string()),
+  glossedWords: z.array(z.string())
+});
+
+export { GlossedTextZodSchema };
+
+const GlossedSentenceSchema = t.Transform(
   t.Object({
     originalText: t.Array(t.String()),
     glossedWords: t.Array(t.String())
@@ -13,12 +21,12 @@ const GlossedTextSchema = t.Transform(
     return data;
 }).Encode(data => data);
 
-export type GlossedText = Static<typeof GlossedTextSchema>;
+export type GlossedSentence = Static<typeof GlossedSentenceSchema>;
 
 export const TextResponseSchema = t.Object({
   request_id: t.String({ format: 'uuid' }),
   translatedText: t.String(),
-  glossedText: GlossedTextSchema,
+  glossedText: t.Array(GlossedSentenceSchema),
 });
 
 export type TextResponse = Static<typeof TextResponseSchema>;
