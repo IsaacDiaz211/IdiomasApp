@@ -1,25 +1,31 @@
 import { Elysia } from 'elysia';
 import { TextRequestSchema } from './schemas/request';
 import { TextResponseSchema } from './schemas/response';
+import { ChineseResponseSchema } from './schemas/chineseResponse';
 import { parseOrThrow } from './schemas/validation';
 import { runTranslationPipeline } from './pipeline/translate';
-import { toHttpError } from './logs/errors';
+//import { toHttpError } from './logs/errors';
 
 const TranslationController = new Elysia()
     .post(
         '/translate', 
         async ({ body }) => {
-            try {
-                const translationResult = await runTranslationPipeline(body);
-                return parseOrThrow(TextResponseSchema, translationResult);
-            } catch (error) {
-                const httpError = toHttpError(error);
-                return httpError.body;        
-            }
+            const translationResult = await runTranslationPipeline(body);
+            return parseOrThrow(TextResponseSchema, translationResult);
         },
         {
             body: TextRequestSchema, 
         }
-    );
+    )
+    .post(
+        '/translate/chinese',
+        async ({ body }) => {
+            const translationResult = await runTranslationPipeline(body);
+            return parseOrThrow(ChineseResponseSchema, translationResult);
+        },
+        {
+            body: TextRequestSchema, 
+        }
+    )
 
 export { TranslationController };

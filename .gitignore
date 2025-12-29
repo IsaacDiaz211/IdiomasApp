@@ -8,6 +8,9 @@
 # testing
 /coverage
 
+# notes
+/notes
+
 # next.js
 /.next/
 /out/
