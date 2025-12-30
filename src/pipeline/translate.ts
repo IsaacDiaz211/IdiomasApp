@@ -7,7 +7,7 @@ import { ChineseResponse, GlossedChineseSentence } from '../schemas/chineseRespo
 async function runTranslationPipeline(input: TextToTranslateRequest): Promise<TextResponse | ChineseResponse> {
     try {
         if (!verifyL2(input.text, input.l2)) {
-            throw new Error("Input text does not match the specified target language (l2).")
+            throw new Error("From veryfiL2: Input text does not match the specified target language (l2).")
         }
         if(input.l2.toLowerCase() === 'chinese') {
             return await ChineseTranslationPipeline(input);
@@ -15,7 +15,7 @@ async function runTranslationPipeline(input: TextToTranslateRequest): Promise<Te
             return await GeneralTranslationPipeline(input);
         }
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Error from runTranslationPipeline:", error);
         throw error;  
     }
 }
@@ -40,7 +40,7 @@ function separeteChineseSentences(text: string): string[] {
 async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promise<ChineseResponse> {
     try {
         if (!verifyL2(input.text, input.l2)) {
-            throw new Error("Input text does not match the specified target language (l2).")
+            throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
         }
         const sentences = separeteChineseSentences(input.text);
         let glossedText = new Array<GlossedChineseSentence>();

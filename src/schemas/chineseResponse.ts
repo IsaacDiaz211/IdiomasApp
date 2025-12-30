@@ -26,8 +26,8 @@ const GlossedChineseSentenceSchema = t.Transform(
 export type GlossedChineseSentence = Static<typeof GlossedChineseSentenceSchema>;
  
 export const ChineseResponseSchema = t.Object({
-  request_id: t.String({ format: 'uuid' }),
-  translatedText: t.String(),
+  request_id: t.String(),
+  translatedText: t.Array(t.String()),
   glossedText: t.Array(GlossedChineseSentenceSchema),
 });
 

@@ -11,6 +11,11 @@ morphemes. Do not add punctuation marks (like '.' or ',', etc.) or markdown form
 Input: "This can cause downstream parsing to fail. Use structured output to ensure that the LLM returns a standard JSON string." (English to Spanish)
 Output: { "originalText": ["this", "can", "cause", "downstream", "parsing", "to", "fail"], "glossedWords": ["esto", "puede", "causar", "posterior", "análisis", "para", "fallar"] }
 Both have the same length of 7 morphemes and the order of the language l2 is respected.
+**Example2: l1: Spanish, l2: English**
+Input: "The ironic thing is that the Chinese, in general, don't have a sweet tooth. Most Western desserts are too sweet for Chinese palates.".
+Output: { "originalText": ["the", "ironic", "thing", "is", "that", "the", "Chinese", "in", "general", "don't", "have", "a", "sweet", "tooth", "most", "Western", "desserts", "are",  "too", "sweet", "for", "Chinese", "palates"],
+"glossedWords": ["lo", "irónico", "cosa", "es", "que", "los", "chinos", "en", "general", "no", "tienen", "un", "dulce", "diente", "la mayoría", "occidentales", "postres", "son", "muy/demasiado", "dulces", "para", "chinos", "paladares"] }
+Both have the same length of 23 morphemes and the order of the language l2 is respected.
 **Additional Notes:**
 -'l1' is the mother tongue, 'l2' is the foreign/target language.
 The text is:\n${text}.`;
@@ -37,3 +42,17 @@ The three have the same length of morphemes and the order of the language Mandar
 **Additional Notes:**
 -'l1' is the mother tongue, 'l2' is the foreign/target language.
 The text is:\n${text}.`;
+
+export const naturalTranslationPrompt = (l1: string, l2: string, text: string, num_sentences: number) => `
+Translate the following text from ${l2} to ${l1} in a natural and fluent manner. Ensure that the translation 
+captures the meaning and context of the original text while adhering to the grammatical and syntactical norms of 
+${l1}. Avoid literal translations that may sound awkward or unnatural in ${l1}. Do not include any additional 
+comments or explanations, only provide the translated text. Maintain the order and mount of the sentences of the 
+original text, the amount of sentences in the original must be equeal to the tranlated text result.In this case, 
+the text has ${num_sentences} sentences. The output MUST be a valid JSON object. The JSON must have exactly one key:
+"sentences" (array of strings), each element of the array is a translated sentence. And the length of the array must be 
+equal to ${num_sentences}.
+**Example: l1: Spanish, l2: English**
+Input: "This is a sample text. It contains multiple sentences for translation." (English to Spanish)
+Output: { "sentences": ["Este es un texto de ejemplo.", "Contiene múltiples oraciones para la traducción."] }
+The text to translate is:\n${text}.`;

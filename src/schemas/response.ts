@@ -23,9 +23,15 @@ const GlossedSentenceSchema = t.Transform(
 
 export type GlossedSentence = Static<typeof GlossedSentenceSchema>;
 
+const SentencesTranslatedZodSchema = z.object({
+  sentences: z.array(z.string())
+});
+
+export { SentencesTranslatedZodSchema };
+
 export const TextResponseSchema = t.Object({
-  request_id: t.String({ format: 'uuid' }),
-  translatedText: t.String(),
+  request_id: t.String(),
+  translatedText: t.Array(t.String()),
   glossedText: t.Array(GlossedSentenceSchema),
 });
 

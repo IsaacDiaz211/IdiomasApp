@@ -2,9 +2,9 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt } from './prompts';
+import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt } from './prompts';
 import { GlossedSentence } from "../schemas/response";
-import { GlossedTextZodSchema } from "../schemas/response";
+import { GlossedTextZodSchema, SentencesTranslatedZodSchema } from "../schemas/response";
 import { GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseZodSchema } from "../schemas/chineseResponse";
 
@@ -27,12 +27,32 @@ export class QwenProvider implements LLMProvider {
         return completion.choices[0].message.content || "";
     }
 
-    async translateText(text: string, l1: string, l2: string, num_sentences: number): Promise<string> {
-        const prompt = `Translate the following text from ${l2} to ${l1} but maintain the order of the sentences
-        of the original text, the amount of sentences in the original must be equeal to the tranlated text result.
-        In this case, the text has ${num_sentences} sentences.
-        The text to translate is:\n${text} .`;
-        return await this.main(prompt);
+    async translateText(text: string, l1: string, l2: string, num_sentences: number): Promise<string[]> {
+        try {
+            const prompt = naturalTranslationPrompt(l1, l2, text, num_sentences);
+            const completion = await this.openai.chat.completions.parse({
+                model: "qwen-plus",
+                messages: [
+                    { role: "system", content: "You are a helpful translator and language expert." },
+                    { role: "user", content: prompt },
+                ],
+                response_format: zodResponseFormat(SentencesTranslatedZodSchema, "sentences")
+            });
+            console.log("Translation :", completion.choices[0].message);
+            let translation = completion.choices[0].message.parsed;
+            if (!translation) {
+                throw new Error("From traslateText(null): Failed to parse translated text.");
+            }
+            if (translation.sentences.length !== num_sentences) {
+                throw new Error("From translateText(!==): Parsed translated text has mismatched number of sentences.");
+            }
+            let response = translation.sentences; //.map(sentence => sentence.trim());
+            return response;
+        } catch (error) {
+            console.error("From translateText: Error translating text:", error);
+            throw error;
+        }
+        
     }
 
     async glossText(text: string, l1: string, l2: string): Promise<GlossedSentence> {
@@ -48,14 +68,6 @@ export class QwenProvider implements LLMProvider {
             });
             console.log("Glossing completion:", completion.choices[0].message);
             const glossedTranslation: GlossedSentence | null = completion.choices[0].message.parsed;
-
-            /*let originalText: string[] = [];
-            let glossedWords: string[] = [];
-            console.log("Glossing response:", response);
-            // Simple parsing logic assuming the response format is consistent
-            const lines = response.split('#').map(line => line.trim());
-            originalText = lines[0].split('/').map(word => word.trim());
-            glossedWords = lines[1].split('/').map(word => word.trim());*/
 
             if (!glossedTranslation) {
                 throw new Error("Failed to parse glossed translation.");
