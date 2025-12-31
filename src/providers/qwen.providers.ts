@@ -45,7 +45,7 @@ export class QwenProvider implements LLMProvider {
                 ],
                 response_format: zodResponseFormat(SentencesTranslatedZodSchema, "sentences")
             });
-            //console.log("Translation :", completion.choices[0].message);
+            console.log("Translation :", completion.choices[0].message);
             let translation = completion.choices[0].message.parsed;
             if (!translation) {
                 throw new Error("From traslateText(null): Failed to parse translated text.");

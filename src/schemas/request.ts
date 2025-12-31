@@ -25,7 +25,7 @@ export const TextRequestSchema = t.Transform(
     if (l1 === l2) {
         throw new Error("l2 must be different from l1");
     }
-    const allowed = new Set(supportedLanguages);
+    const allowed = new Set(Object.keys(supportedLanguages));
     if (!allowed.has(l1)) throw new Error(`unsupported l1: ${l1}`);
     if (!allowed.has(l2)) throw new Error(`unsupported l2: ${l2}`);
 

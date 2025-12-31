@@ -19,6 +19,9 @@ const TranslationController = new Elysia()
     .post(
         '/translate/chinese',
         async ({ body }) => {
+            if (body.l2.toLowerCase() !== 'zh') {
+                throw new Error('Target language must be Chinese for this endpoint.');
+            }
             const translationResult = await runTranslationPipeline(body);
             return parseOrThrow(ChineseResponseSchema, translationResult);
         },

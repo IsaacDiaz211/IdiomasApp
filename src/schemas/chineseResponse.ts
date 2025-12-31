@@ -17,7 +17,7 @@ const GlossedChineseSentenceSchema = t.Transform(
   })
 )
 .Decode(data => {
-    if (data.separateWords.length !== data.glossedWords.length && data.separateWords.length !== data.pinyin.length) {
+    if (data.separateWords.length !== data.glossedWords.length || data.separateWords.length !== data.pinyin.length) {
         throw new Error("separateWords, pinyin, and glossedWords must have the same length");
     }
     return data;

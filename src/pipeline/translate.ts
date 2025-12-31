@@ -6,7 +6,7 @@ import { ChineseResponse, GlossedChineseSentence } from '../schemas/chineseRespo
 
 async function runTranslationPipeline(input: TextToTranslateRequest): Promise<TextResponse | ChineseResponse> {
     try {
-        if(input.l2.toLowerCase() === 'chinese') {
+        if(input.l2.toLowerCase() === 'zh') {
             return await ChineseTranslationPipeline(input);
         } else {
             return await GeneralTranslationPipeline(input);
@@ -19,26 +19,22 @@ async function runTranslationPipeline(input: TextToTranslateRequest): Promise<Te
 
 export { runTranslationPipeline };
 
-function separeteSentences(text: string): string[] {
-    // Simple sentence separation based on punctuation
-    return text.split(/(?<=[.!?])\s+/);
-}
-
-function separeteChineseSentences(text: string): string[] {
-    // Simple sentence separation based on Chinese punctuation
-    return text.split(/(?<=[。！？])\s+/);
+function getSentences(text: string, lang: string): string[] {
+    const segmenter = new Intl.Segmenter(lang, { granularity: 'sentence' });
+    const segments = segmenter.segment(text);
+    return Array.from(segments).map(s => s.segment.trim());
 }
 
 async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promise<ChineseResponse> {
     try {
         const provider = new QwenProvider();
-        const sentences = separeteChineseSentences(input.text);
+        const sentences = getSentences(input.text, input.l2);
         let glossedText = new Array<GlossedChineseSentence>();
 
         let languageDetected = await provider.detectLanguage(sentences[0]);
         console.log("Detected language:", languageDetected);
 
-        if (languageDetected.toLowerCase() !== 'chinese') {
+        if (languageDetected.toLowerCase() !== 'zh') {
             throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
         }
 
@@ -63,7 +59,7 @@ async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promis
 async function GeneralTranslationPipeline(input: TextToTranslateRequest): Promise<TextResponse> {
     try {
         const provider = new QwenProvider();
-        const sentences = separeteSentences(input.text);
+        const sentences = getSentences(input.text, input.l2);
         let glossedText = new Array<GlossedSentence>();
         let languageDetected = await provider.detectLanguage(sentences[0]);
         console.log("Detected language:", languageDetected);
