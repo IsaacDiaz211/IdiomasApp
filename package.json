@@ -6,6 +6,7 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.4.1",
     "@sinclair/typebox": "^0.34.45",
     "elysia": "^1.4.19",
     "openai": "^6.15.0",

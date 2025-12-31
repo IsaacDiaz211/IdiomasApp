@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt } from './prompts';
+import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt } from './prompts';
 import { GlossedSentence } from "../schemas/response";
 import { GlossedTextZodSchema, SentencesTranslatedZodSchema } from "../schemas/response";
 import { GlossedChineseSentence } from "../schemas/chineseResponse";
@@ -16,15 +16,22 @@ export class QwenProvider implements LLMProvider {
         }
     );
 
-    async main(input: string): Promise<string> {
+    async detectLanguage(text: string): Promise<string> {
+        let prompt = detectLanguagePrompt(text);
         const completion = await this.openai.chat.completions.create({
-            model: process.env.AI_MODEL || "qwen-plus",
+            model: "qwen-flash",
             messages: [
                 { role: "system", content: "You are a helpful translator and language expert." },
-                { role: "user", content: input }
+                { role: "user", content: prompt }
             ],
         });
-        return completion.choices[0].message.content || "";
+        let response = completion.choices[0].message.content;
+        if (!response) {
+            throw new Error("From detectLanguage: No response from LLM.");
+        } else {
+            response = response.toLowerCase().trim();
+        }
+        return response || "";
     }
 
     async translateText(text: string, l1: string, l2: string, num_sentences: number): Promise<string[]> {
@@ -38,7 +45,7 @@ export class QwenProvider implements LLMProvider {
                 ],
                 response_format: zodResponseFormat(SentencesTranslatedZodSchema, "sentences")
             });
-            console.log("Translation :", completion.choices[0].message);
+            //console.log("Translation :", completion.choices[0].message);
             let translation = completion.choices[0].message.parsed;
             if (!translation) {
                 throw new Error("From traslateText(null): Failed to parse translated text.");
@@ -66,7 +73,7 @@ export class QwenProvider implements LLMProvider {
                 ],
                 response_format: zodResponseFormat(GlossedTextZodSchema, "glossedText"),
             });
-            console.log("Glossing completion:", completion.choices[0].message);
+            //console.log("Glossing completion:", completion.choices[0].message);
             const glossedTranslation: GlossedSentence | null = completion.choices[0].message.parsed;
 
             if (!glossedTranslation) {
@@ -101,7 +108,7 @@ export class QwenProvider implements LLMProvider {
                 ],
                 response_format: zodResponseFormat(GlossedChineseZodSchema, "glossedText"),
             });
-            console.log("Glossing completion:", completion.choices[0].message);
+            //console.log("Glossing completion:", completion.choices[0].message);
             const glossedTranslation: GlossedChineseSentence | null = completion.choices[0].message.parsed;
 
             if (!glossedTranslation) {

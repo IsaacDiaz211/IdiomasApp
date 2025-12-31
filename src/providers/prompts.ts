@@ -56,3 +56,7 @@ equal to ${num_sentences}.
 Input: "This is a sample text. It contains multiple sentences for translation." (English to Spanish)
 Output: { "sentences": ["Este es un texto de ejemplo.", "Contiene múltiples oraciones para la traducción."] }
 The text to translate is:\n${text}.`;
+
+export const detectLanguagePrompt = (text: string) => `
+Detect the language of the following text and respond with the language name in english only in lowercase letters, 
+for example: 'english', 'spanish', 'french', etc. The text:\n${text}`;

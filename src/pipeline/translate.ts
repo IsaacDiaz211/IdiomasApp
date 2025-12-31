@@ -6,9 +6,6 @@ import { ChineseResponse, GlossedChineseSentence } from '../schemas/chineseRespo
 
 async function runTranslationPipeline(input: TextToTranslateRequest): Promise<TextResponse | ChineseResponse> {
     try {
-        if (!verifyL2(input.text, input.l2)) {
-            throw new Error("From veryfiL2: Input text does not match the specified target language (l2).")
-        }
         if(input.l2.toLowerCase() === 'chinese') {
             return await ChineseTranslationPipeline(input);
         } else {
@@ -22,11 +19,6 @@ async function runTranslationPipeline(input: TextToTranslateRequest): Promise<Te
 
 export { runTranslationPipeline };
 
-function verifyL2(text: string, l2: string): boolean {
-    // To implement a simple check to verify if the text is in the target language (l2)
-    return true; // Placeholder implementation
-}
-
 function separeteSentences(text: string): string[] {
     // Simple sentence separation based on punctuation
     return text.split(/(?<=[.!?])\s+/);
@@ -39,12 +31,17 @@ function separeteChineseSentences(text: string): string[] {
 
 async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promise<ChineseResponse> {
     try {
-        if (!verifyL2(input.text, input.l2)) {
-            throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
-        }
+        const provider = new QwenProvider();
         const sentences = separeteChineseSentences(input.text);
         let glossedText = new Array<GlossedChineseSentence>();
-        const provider = new QwenProvider();
+
+        let languageDetected = await provider.detectLanguage(sentences[0]);
+        console.log("Detected language:", languageDetected);
+
+        if (languageDetected.toLowerCase() !== 'chinese') {
+            throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
+        }
+
         const translatedText = await provider.translateText(input.text, input.l1, input.l2, sentences.length);
 
         for (const sentence of sentences) {
@@ -65,12 +62,16 @@ async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promis
 
 async function GeneralTranslationPipeline(input: TextToTranslateRequest): Promise<TextResponse> {
     try {
-        if (!verifyL2(input.text, input.l2)) {
-            throw new Error("Input text does not match the specified target language (l2).")
-        }
+        const provider = new QwenProvider();
         const sentences = separeteSentences(input.text);
         let glossedText = new Array<GlossedSentence>();
-        const provider = new QwenProvider();
+        let languageDetected = await provider.detectLanguage(sentences[0]);
+        console.log("Detected language:", languageDetected);
+
+        if (languageDetected.toLowerCase() !== input.l2.toLowerCase()) {
+            throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
+        }
+        
         const translatedText = await provider.translateText(input.text, input.l1, input.l2, sentences.length);
 
         for (const sentence of sentences) {

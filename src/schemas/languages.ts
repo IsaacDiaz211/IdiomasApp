@@ -3,4 +3,5 @@ export const supportedLanguages = [
   "english",
   "portuguese",
   "chinese",
+  "vitnamese",
 ];

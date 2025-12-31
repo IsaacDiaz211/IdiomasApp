@@ -10,7 +10,6 @@ const TranslationController = new Elysia()
         '/translate', 
         async ({ body }) => {
             const translationResult = await runTranslationPipeline(body);
-            //return translationResult;
             return parseOrThrow(TextResponseSchema, translationResult);
         },
         {
