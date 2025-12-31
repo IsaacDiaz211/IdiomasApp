@@ -2,11 +2,12 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt } from './prompts';
+import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt, grammarPointPrompt } from './prompts';
 import { GlossedSentence } from "../schemas/response";
 import { GlossedTextZodSchema, SentencesTranslatedZodSchema } from "../schemas/response";
 import { GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseZodSchema } from "../schemas/chineseResponse";
+import { GrammarArray, GrammarArrayZodSchema } from "../schemas/grammar";
 
 export class QwenProvider implements LLMProvider {
     openai = new OpenAI(
@@ -131,6 +132,37 @@ export class QwenProvider implements LLMProvider {
             };
         } catch (error) {
             console.error("Error glossing text:", error);
+            throw error;
+        }
+    }
+
+    async getGrammarPoints(text: string, l1: string, l2: string): Promise<GrammarArray> {
+        try {
+            const prompt = grammarPointPrompt(l1, l2, text);
+            const completion = await this.openai.chat.completions.parse({
+                model: "qwen-plus",
+                messages: [
+                    { role: "system", content: "You are a helpful translator and language expert and teacher." },
+                    { role: "user", content: prompt },
+                ],
+                response_format: zodResponseFormat(GrammarArrayZodSchema, "grammarPoints"),
+            });
+            const grammarPoints = completion.choices[0].message.parsed;
+
+            if (!grammarPoints) {
+                throw new Error("Failed to parse grammar points.");
+            }
+            //console.log("Grammar: ", completion.choices[0].message.parsed)
+            return grammarPoints;
+            /*return grammarPoints
+                .slice(0, 3)
+                .map(point => ({
+                    grammar_point: point.grammar_point.trim(),
+                    sentence: point.sentence.trim(),
+                    explanation: point.explanation.trim(),
+                }));*/
+        } catch (error) {
+            console.error("Error getting grammar points:", error);
             throw error;
         }
     }

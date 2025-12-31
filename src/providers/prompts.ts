@@ -56,3 +56,12 @@ The text to translate is:\n${text}.`;
 export const detectLanguagePrompt = (text: string) => `
 Detect the language of the following text and respond with the language name in ISO 639-1 format (two-letter code), 
 for example: 'en' for English, 'es' for Spanish, 'fr' for French, etc. The text:\n${text}`;
+
+export const grammarPointPrompt = (l1: string, l2: string, text: string) => `
+Identify and explain any notable grammar points, structures, or patterns present in the following text written in 
+${l2}. Provide explanations in ${l1}, ensuring clarity and comprehensibility. The explanation should include the 
+name of the grammar point, the sentence original, and an explanatory in ${l1}.
+Return ONLY valid json in the response, as a single object with a "points" array (max 3 items), like this:
+{"points":[{"grammar_point":"","sentence":"","explanation":""}]}
+Do not include any additional information, and the field "explanation" don't surpass 150 words.
+The text is:\n${text}.`;

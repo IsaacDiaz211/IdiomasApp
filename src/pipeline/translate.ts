@@ -29,8 +29,6 @@ async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promis
     try {
         const provider = new QwenProvider();
         const sentences = getSentences(input.text, input.l2);
-        let glossedText = new Array<GlossedChineseSentence>();
-
         let languageDetected = await provider.detectLanguage(sentences[0]);
         console.log("Detected language:", languageDetected);
 
@@ -39,11 +37,9 @@ async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promis
         }
 
         const translatedText = await provider.translateText(input.text, input.l1, input.l2, sentences.length);
-
-        for (const sentence of sentences) {
-            const gloss = await provider.glossChineseText(sentence, input.l1);
-            glossedText.push(gloss);
-        }
+        const glossedText = await Promise.all(
+            sentences.map((sentence) => provider.glossChineseText(sentence, input.l1))
+        );
 
         return {
             request_id: randomUUIDv7(),
@@ -60,7 +56,6 @@ async function GeneralTranslationPipeline(input: TextToTranslateRequest): Promis
     try {
         const provider = new QwenProvider();
         const sentences = getSentences(input.text, input.l2);
-        let glossedText = new Array<GlossedSentence>();
         let languageDetected = await provider.detectLanguage(sentences[0]);
         console.log("Detected language:", languageDetected);
 
@@ -69,16 +64,16 @@ async function GeneralTranslationPipeline(input: TextToTranslateRequest): Promis
         }
         
         const translatedText = await provider.translateText(input.text, input.l1, input.l2, sentences.length);
-
-        for (const sentence of sentences) {
-            const gloss = await provider.glossText(sentence, input.l1, input.l2);
-            glossedText.push(gloss);
-        }
+        const glossedText = await Promise.all(
+            sentences.map((sentence) => provider.glossText(sentence, input.l1, input.l2))
+        );
+        const grammarPoints = await provider.getGrammarPoints(input.text, input.l1, input.l2);
 
         return {
             request_id: randomUUIDv7(),
             translatedText,
-            glossedText
+            glossedText,
+            grammarPoints
         };
     } catch (error) {
         console.error("Error:", error);

@@ -1,5 +1,6 @@
 import { t, Static } from 'elysia';
 import { z } from 'zod';
+import { GrammarArraySchema } from './grammar';
 
 const GlossedTextZodSchema = z.object({
   originalText: z.array(z.string()),
@@ -33,6 +34,7 @@ export const TextResponseSchema = t.Object({
   request_id: t.String(),
   translatedText: t.Array(t.String()),
   glossedText: t.Array(GlossedSentenceSchema),
+  grammarPoints: t.Optional(GrammarArraySchema)
 });
 
 export type TextResponse = Static<typeof TextResponseSchema>;
