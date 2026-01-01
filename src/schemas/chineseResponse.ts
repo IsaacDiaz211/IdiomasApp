@@ -1,5 +1,6 @@
 import { t, Static } from 'elysia';
 import { z } from 'zod';
+import { GrammarArraySchema } from './grammar';
 
 const GlossedChineseZodSchema = z.object({
   separateWords: z.array(z.string()),
@@ -29,6 +30,7 @@ export const ChineseResponseSchema = t.Object({
   request_id: t.String(),
   translatedText: t.Array(t.String()),
   glossedText: t.Array(GlossedChineseSentenceSchema),
+  grammarPoints: t.Optional(GrammarArraySchema)
 });
 
 export type ChineseResponse = Static<typeof ChineseResponseSchema>;

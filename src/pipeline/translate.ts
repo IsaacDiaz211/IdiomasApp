@@ -40,11 +40,13 @@ async function ChineseTranslationPipeline(input: TextToTranslateRequest): Promis
         const glossedText = await Promise.all(
             sentences.map((sentence) => provider.glossChineseText(sentence, input.l1))
         );
+        const grammarPoints = await provider.getGrammarPoints(input.text, input.l1, input.l2);
 
         return {
             request_id: randomUUIDv7(),
             translatedText,
-            glossedText
+            glossedText,
+            grammarPoints
         };
     } catch (error) {
         console.error("Error:", error);
