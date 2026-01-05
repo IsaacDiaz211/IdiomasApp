@@ -24,6 +24,7 @@ const TranslationController = new Elysia()
             }
             const translationResult = await runTranslationPipeline(body);
             return parseOrThrow(ChineseResponseSchema, translationResult);
+            //return translationResult;
         },
         {
             body: TextRequestSchema, 

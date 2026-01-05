@@ -5,6 +5,10 @@ import { GrammarArraySchema } from './grammar';
 const GlossedTextZodSchema = z.object({
   originalText: z.array(z.string()),
   glossedWords: z.array(z.string())
+}).superRefine((data, ctx) => {
+  if (data.originalText.length !== data.glossedWords.length) {
+    ctx.addIssue({ code: "custom", path: ["length"], message: "separateWords, pinyin, and glossedWords must have the same length" });
+  }
 });
 
 export { GlossedTextZodSchema };

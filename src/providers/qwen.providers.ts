@@ -109,15 +109,17 @@ export class QwenProvider implements LLMProvider {
                 ],
                 response_format: zodResponseFormat(GlossedChineseZodSchema, "glossedText"),
             });
-            //console.log("Glossing completion:", completion.choices[0].message);
+            console.log("Glossing completion:", completion.choices[0].message);
             const glossedTranslation: GlossedChineseSentence | null = completion.choices[0].message.parsed;
 
             if (!glossedTranslation) {
+                console.log("Failed to parse glossed translation")
                 throw new Error("Failed to parse glossed translation.");
             }
             if(glossedTranslation.separateWords.length !== glossedTranslation.glossedWords.length
                 && glossedTranslation.separateWords.length !== glossedTranslation.pinyin.length
             ) {
+                console.log("Parsed glossed translation has mismatched lengths.")
                 throw new Error("Parsed glossed translation has mismatched lengths.");
             }
 
@@ -152,7 +154,7 @@ export class QwenProvider implements LLMProvider {
             if (!grammarPoints) {
                 throw new Error("Failed to parse grammar points.");
             }
-            //console.log("Grammar: ", completion.choices[0].message.parsed)
+            console.log("Grammar: ", completion.choices[0].message.parsed)
             return grammarPoints;
             /*return grammarPoints
                 .slice(0, 3)

@@ -6,6 +6,10 @@ const GlossedChineseZodSchema = z.object({
   separateWords: z.array(z.string()),
   pinyin: z.array(z.string()),
   glossedWords: z.array(z.string())
+}).superRefine((data, ctx) => {
+  if (data.separateWords.length !== data.pinyin.length || data.separateWords.length !== data.glossedWords.length) {
+    ctx.addIssue({ code: "custom", path: ["length"], message: "separateWords, pinyin, and glossedWords must have the same length" });
+  }
 });
 
 export { GlossedChineseZodSchema };
