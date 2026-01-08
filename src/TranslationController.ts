@@ -7,9 +7,17 @@ import { runTranslationPipeline } from './pipeline/translate';
 
 const TranslationController = new Elysia()
     .post(
-        '/translate', 
-        async ({ body }) => {
-            const translationResult = await runTranslationPipeline(body);
+        '/translate/:grammar?',
+        async ({ body, params: { grammar } }) => {
+            let translationResult;
+            if (grammar){
+                translationResult = await runTranslationPipeline(body, true);
+            } else {
+                translationResult = await runTranslationPipeline(body);
+            }
+            if(body.l2 === 'zh'){
+                return parseOrThrow(ChineseResponseSchema, translationResult);
+            }
             return parseOrThrow(TextResponseSchema, translationResult);
         },
         {
@@ -17,17 +25,13 @@ const TranslationController = new Elysia()
         }
     )
     .post(
-        '/translate/chinese',
+        '/translate/grammar',
         async ({ body }) => {
-            if (body.l2.toLowerCase() !== 'zh') {
-                throw new Error('Target language must be Chinese for this endpoint.');
-            }
-            const translationResult = await runTranslationPipeline(body);
-            return parseOrThrow(ChineseResponseSchema, translationResult);
-            //return translationResult;
+            const translationResult = await runTranslationPipeline(body, true);
+            return parseOrThrow(TextResponseSchema, translationResult);
         },
         {
-            body: TextRequestSchema, 
+            body: TextRequestSchema,
         }
     )
 
