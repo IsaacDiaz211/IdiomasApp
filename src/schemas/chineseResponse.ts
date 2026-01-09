@@ -1,40 +1,28 @@
-import { t, Static } from 'elysia';
 import { z } from 'zod';
-import { GrammarArraySchema } from './grammar';
 
-const GlossedChineseZodSchema = z.object({
-  separateWords: z.array(z.string()),
-  pinyin: z.array(z.string()),
-  glossedWords: z.array(z.string())
+const MorphemeSchema = z.object({
+  hanzi: z.string(),
+  pinyin: z.string(),
+  gloss: z.string()
+});
+
+const GlossedChineseSchema = z.object({
+  morphemes: z.array(MorphemeSchema)
+});
+
+export { GlossedChineseSchema };
+
+export type GlossedChinese = z.infer<typeof GlossedChineseSchema>;
+
+const GlossedChineseSentenceSchema = z.object({
+    separateWords: z.array(z.string()),
+    pinyin: z.array(z.string()),
+    glossedWords: z.array(z.string())
 }).superRefine((data, ctx) => {
   if (data.separateWords.length !== data.pinyin.length || data.separateWords.length !== data.glossedWords.length) {
     ctx.addIssue({ code: "custom", path: ["length"], message: "separateWords, pinyin, and glossedWords must have the same length" });
   }
 });
 
-export { GlossedChineseZodSchema };
-
-const GlossedChineseSentenceSchema = t.Transform(
-  t.Object({
-    separateWords: t.Array(t.String()),
-    pinyin: t.Array(t.String()),
-    glossedWords: t.Array(t.String())
-  })
-)
-.Decode(data => {
-    if (data.separateWords.length !== data.glossedWords.length || data.separateWords.length !== data.pinyin.length) {
-        throw new Error("separateWords, pinyin, and glossedWords must have the same length");
-    }
-    return data;
-}).Encode(data => data);
-
-export type GlossedChineseSentence = Static<typeof GlossedChineseSentenceSchema>;
- 
-export const ChineseResponseSchema = t.Object({
-  request_id: t.String(),
-  translatedText: t.Array(t.String()),
-  glossedText: t.Array(GlossedChineseSentenceSchema),
-  grammarPoints: t.Optional(GrammarArraySchema)
-});
-
-export type ChineseResponse = Static<typeof ChineseResponseSchema>;
+export { GlossedChineseSentenceSchema };
+export type GlossedChineseSentence = z.infer<typeof GlossedChineseSentenceSchema>;

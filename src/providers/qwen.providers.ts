@@ -1,13 +1,12 @@
-// A implementention using Qwen LLM model
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt, grammarPointPrompt } from './prompts';
-import { GlossedSentence } from "../schemas/response";
-import { GlossedTextZodSchema, SentencesTranslatedZodSchema } from "../schemas/response";
-import { GlossedChineseSentence } from "../schemas/chineseResponse";
-import { GlossedChineseZodSchema } from "../schemas/chineseResponse";
-import { GrammarArray, GrammarArrayZodSchema } from "../schemas/grammar";
+import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt, grammarPointPrompt } from '../../notes/prompts';
+import { GlossedSchema, SentencesTranslatedSchema } from "../schemas/response";
+import type { GlossedSentence } from "../schemas/response";
+import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
+import { GlossedChineseSchema } from "../schemas/chineseResponse";
+import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
 
 export class QwenProvider implements LLMProvider {
     openai = new OpenAI(
@@ -39,12 +38,13 @@ export class QwenProvider implements LLMProvider {
         try {
             const prompt = naturalTranslationPrompt(l1, l2, text, num_sentences);
             const completion = await this.openai.chat.completions.parse({
-                model: "qwen-plus",
+                model: "qwen3-max",
                 messages: [
                     { role: "system", content: "You are a helpful translator and language expert." },
                     { role: "user", content: prompt },
                 ],
-                response_format: zodResponseFormat(SentencesTranslatedZodSchema, "sentences")
+                response_format: zodResponseFormat(SentencesTranslatedSchema, "sentences"),
+                enable_thinking: true
             });
             console.log("Translation :", completion.choices[0].message);
             let translation = completion.choices[0].message.parsed;
@@ -72,26 +72,24 @@ export class QwenProvider implements LLMProvider {
                     { role: "system", content: "You are a helpful translator and language expert." },
                     { role: "user", content: prompt },
                 ],
-                response_format: zodResponseFormat(GlossedTextZodSchema, "glossedText"),
+                response_format: zodResponseFormat(GlossedSchema, "glossedText"),
             });
             //console.log("Glossing completion:", completion.choices[0].message);
-            const glossedTranslation: GlossedSentence | null = completion.choices[0].message.parsed;
+            const glossedTranslation = completion.choices[0].message.parsed;
 
             if (!glossedTranslation) {
                 throw new Error("Failed to parse glossed translation.");
             }
-            if(glossedTranslation.originalText.length !== glossedTranslation.glossedWords.length) {
-                throw new Error("Parsed glossed translation has mismatched lengths.");
-            }
 
-            glossedTranslation.originalText.map(word => word.trim());
-            glossedTranslation.glossedWords.map(word => word.trim());
-            
-            glossedTranslation.glossedWords
-            return {
-                originalText: glossedTranslation.originalText,
-                glossedWords: glossedTranslation.glossedWords
+            if (!glossedTranslation) {
+                //console.log("Failed to parse glossed translation")
+                throw new Error("Failed to parse glossed translation.");
+            }
+            const result: GlossedSentence = {
+                originalText: glossedTranslation.morphemes.map(s => s.morpheme.trim()),
+                glossedWords: glossedTranslation.morphemes.map(s => s.gloss.trim())
             };
+            return result;
         } catch (error) {
             console.error("Error glossing text:", error);
             throw error;
@@ -107,31 +105,22 @@ export class QwenProvider implements LLMProvider {
                     { role: "system", content: "You are a helpful translator and language expert and teacher." },
                     { role: "user", content: prompt },
                 ],
-                response_format: zodResponseFormat(GlossedChineseZodSchema, "glossedText"),
+                response_format: zodResponseFormat(GlossedChineseSchema, "glossedText"),
+                //enable_thinking: true,
             });
-            console.log("Glossing completion:", completion.choices[0].message);
-            const glossedTranslation: GlossedChineseSentence | null = completion.choices[0].message.parsed;
+            //console.log("Glossing completion:", completion.choices[0].message);
+            const glossedTranslation: GlossedChinese | null = completion.choices[0].message.parsed;
 
             if (!glossedTranslation) {
                 console.log("Failed to parse glossed translation")
                 throw new Error("Failed to parse glossed translation.");
             }
-            if(glossedTranslation.separateWords.length !== glossedTranslation.glossedWords.length
-                && glossedTranslation.separateWords.length !== glossedTranslation.pinyin.length
-            ) {
-                console.log("Parsed glossed translation has mismatched lengths.")
-                throw new Error("Parsed glossed translation has mismatched lengths.");
-            }
-
-            glossedTranslation.separateWords.map(word => word.trim());
-            glossedTranslation.pinyin.map(word => word.trim());
-            glossedTranslation.glossedWords.map(word => word.trim());
-
-            return {
-                separateWords: glossedTranslation.separateWords,
-                pinyin: glossedTranslation.pinyin,
-                glossedWords: glossedTranslation.glossedWords
+            const result: GlossedChineseSentence = {
+                separateWords: glossedTranslation.morphemes.map(s => s.hanzi.trim()),
+                pinyin: glossedTranslation.morphemes.map(s => s.pinyin.trim()),
+                glossedWords: glossedTranslation.morphemes.map(s => s.gloss.trim())
             };
+            return result;
         } catch (error) {
             console.error("Error glossing text:", error);
             throw error;
@@ -147,22 +136,15 @@ export class QwenProvider implements LLMProvider {
                     { role: "system", content: "You are a helpful translator and language expert and teacher." },
                     { role: "user", content: prompt },
                 ],
-                response_format: zodResponseFormat(GrammarArrayZodSchema, "grammarPoints"),
+                response_format: zodResponseFormat(GrammarArraySchema, "grammarPoints"),
             });
             const grammarPoints = completion.choices[0].message.parsed;
 
             if (!grammarPoints) {
                 throw new Error("Failed to parse grammar points.");
             }
-            console.log("Grammar: ", completion.choices[0].message.parsed)
+            //console.log("Grammar: ", completion.choices[0].message.parsed)
             return grammarPoints;
-            /*return grammarPoints
-                .slice(0, 3)
-                .map(point => ({
-                    grammar_point: point.grammar_point.trim(),
-                    sentence: point.sentence.trim(),
-                    explanation: point.explanation.trim(),
-                }));*/
         } catch (error) {
             console.error("Error getting grammar points:", error);
             throw error;

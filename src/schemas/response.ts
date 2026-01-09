@@ -1,44 +1,41 @@
-import { t, Static } from 'elysia';
 import { z } from 'zod';
 import { GrammarArraySchema } from './grammar';
+import { GlossedChineseSentenceSchema } from './chineseResponse';
 
-const GlossedTextZodSchema = z.object({
+const MorphemeSchema = z.object({
+  morpheme: z.string(),
+  gloss: z.string()
+});
+
+const GlossedSchema = z.object({
+  morphemes: z.array(MorphemeSchema)
+});
+
+export { GlossedSchema };
+
+const GlossedTextSchema = z.object({
   originalText: z.array(z.string()),
   glossedWords: z.array(z.string())
 }).superRefine((data, ctx) => {
   if (data.originalText.length !== data.glossedWords.length) {
-    ctx.addIssue({ code: "custom", path: ["length"], message: "separateWords, pinyin, and glossedWords must have the same length" });
+    ctx.addIssue({ code: "custom", path: ["length"], message: "separateWords and glossedWords must have the same length" });
   }
 });
 
-export { GlossedTextZodSchema };
+export { GlossedTextSchema };
+export type GlossedSentence = z.infer<typeof GlossedTextSchema>
 
-const GlossedSentenceSchema = t.Transform(
-  t.Object({
-    originalText: t.Array(t.String()),
-    glossedWords: t.Array(t.String())
-  })
-)
-.Decode(data => {
-    if (data.originalText.length !== data.glossedWords.length) {
-        throw new Error("originalText and glossedWords must have the same length");
-    }
-    return data;
-}).Encode(data => data);
-
-export type GlossedSentence = Static<typeof GlossedSentenceSchema>;
-
-const SentencesTranslatedZodSchema = z.object({
+const SentencesTranslatedSchema = z.object({
   sentences: z.array(z.string())
 });
 
-export { SentencesTranslatedZodSchema };
+export { SentencesTranslatedSchema };
 
-export const TextResponseSchema = t.Object({
-  request_id: t.String(),
-  translatedText: t.Array(t.String()),
-  glossedText: t.Array(GlossedSentenceSchema),
-  grammarPoints: t.Optional(GrammarArraySchema)
+export const TextResponseSchema = z.object({
+  request_id: z.uuidv7(),
+  translatedText: z.array(z.string()),
+  glossedText: z.array(GlossedChineseSentenceSchema).or(z.array(GlossedTextSchema)),
+  grammarPoints: z.optional(GrammarArraySchema)
 });
 
-export type TextResponse = Static<typeof TextResponseSchema>;
+export type TextResponse = z.infer<typeof TextResponseSchema>;

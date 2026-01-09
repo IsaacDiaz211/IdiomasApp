@@ -1,8 +1,7 @@
 import { TextToTranslateRequest } from '../schemas/request';
-import { TextResponse, GlossedSentence } from '../schemas/response';
+import type { TextResponse } from '../schemas/response';
 import { QwenProvider } from '../providers/qwen.providers';
 import { randomUUIDv7 } from "bun";
-import { ChineseResponse, GlossedChineseSentence } from '../schemas/chineseResponse';
 
 function getSentences(text: string, lang: string): string[] {
     const segmenter = new Intl.Segmenter(lang, { granularity: 'sentence' });
@@ -10,7 +9,7 @@ function getSentences(text: string, lang: string): string[] {
     return Array.from(segments).map(s => s.segment.trim());
 }
 
-async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: boolean): Promise<ChineseResponse | TextResponse> {
+async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: boolean): Promise<TextResponse> {
     try {
         const provider = new QwenProvider();
         const sentences = getSentences(input.text, input.l2);
@@ -35,12 +34,13 @@ async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: b
                     glossedText,
                     grammarPoints
                 };
+            } else {
+                return {
+                    request_id: randomUUIDv7(),
+                    translatedText,
+                    glossedText
+                };
             }
-            return {
-                request_id: randomUUIDv7(),
-                translatedText,
-                glossedText
-            };
         } else {
             glossedText = await Promise.all(
                 sentences.map((sentence) => provider.glossText(sentence, input.l1, input.l2))
@@ -53,12 +53,14 @@ async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: b
                     glossedText,
                     grammarPoints
                 };
+            } else {
+                return {
+                    request_id: randomUUIDv7(),
+                    translatedText,
+                    glossedText
+                };
             }
-            return {
-                request_id: randomUUIDv7(),
-                translatedText,
-                glossedText
-            };
+            
         }
     } catch (error) {
         console.error("Error:", error);
