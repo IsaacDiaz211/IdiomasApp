@@ -7,8 +7,9 @@ import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
+import { tr } from "zod/v4/locales";
 
-export class QwenProvider implements LLMProvider {
+export class OpenAIProvider implements LLMProvider {
     openai = new OpenAI(
         {
             apiKey: process.env.AI_KEY,
@@ -34,28 +35,23 @@ export class QwenProvider implements LLMProvider {
         return response || "";
     }
 
-    async translateText(text: string, l1: string, l2: string, num_sentences: number): Promise<string[]> {
+    async translateText(text: string, l1: string, l2: string): Promise<string> {
         try {
-            const prompt = naturalTranslationPrompt(l1, l2, text, num_sentences);
-            const completion = await this.openai.chat.completions.parse({
-                model: "qwen3-max",
+            const completion = await this.openai.chat.completions.create({
+                model: "qwen-mt-plus", 
                 messages: [
-                    { role: "system", content: "You are a helpful translator and language expert." },
-                    { role: "user", content: prompt },
+                    { role: "user", content: text }
                 ],
-                response_format: zodResponseFormat(SentencesTranslatedSchema, "sentences"),
-                enable_thinking: true
-            });
-            console.log("Translation :", completion.choices[0].message);
-            let translation = completion.choices[0].message.parsed;
+                translation_options: {
+                    source_lang: l2,
+                    target_lang: l1
+                }
+            } as any);
+            const translation = completion.choices[0].message.content;
             if (!translation) {
                 throw new Error("From traslateText(null): Failed to parse translated text.");
             }
-            if (translation.sentences.length !== num_sentences) {
-                throw new Error("From translateText(!==): Parsed translated text has mismatched number of sentences.");
-            }
-            let response = translation.sentences; //.map(sentence => sentence.trim());
-            return response;
+            return translation;
         } catch (error) {
             console.error("From translateText: Error translating text:", error);
             throw error;
@@ -67,7 +63,7 @@ export class QwenProvider implements LLMProvider {
         try {
             const prompt = interlinearAlphabeticPrompt(l1, l2, text);
             const completion = await this.openai.chat.completions.parse({
-                model: "qwen-plus",
+                model: process.env.AI_MODEL || "qwen3-max",
                 messages: [
                     { role: "system", content: "You are a helpful translator and language expert." },
                     { role: "user", content: prompt },
@@ -100,7 +96,7 @@ export class QwenProvider implements LLMProvider {
         try {
             const prompt = interlinearChinesePrompt(l1, text);
             const completion = await this.openai.chat.completions.parse({
-                model: "qwen-plus",
+                model: process.env.AI_MODEL || "qwen3-max",
                 messages: [
                     { role: "system", content: "You are a helpful translator and language expert and teacher." },
                     { role: "user", content: prompt },
@@ -131,7 +127,7 @@ export class QwenProvider implements LLMProvider {
         try {
             const prompt = grammarPointPrompt(l1, l2, text);
             const completion = await this.openai.chat.completions.parse({
-                model: "qwen-plus",
+                model: process.env.AI_MODEL || "qwen3-max",
                 messages: [
                     { role: "system", content: "You are a helpful translator and language expert and teacher." },
                     { role: "user", content: prompt },

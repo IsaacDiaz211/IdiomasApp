@@ -1,6 +1,6 @@
 import { TextToTranslateRequest } from '../schemas/request';
 import type { TextResponse } from '../schemas/response';
-import { QwenProvider } from '../providers/qwen.providers';
+import { OpenAIProvider } from '../providers/openai.providers';
 import { randomUUIDv7 } from "bun";
 
 function getSentences(text: string, lang: string): string[] {
@@ -11,7 +11,7 @@ function getSentences(text: string, lang: string): string[] {
 
 async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: boolean): Promise<TextResponse> {
     try {
-        const provider = new QwenProvider();
+        const provider = new OpenAIProvider();
         const sentences = getSentences(input.text, input.l2);
         let languageDetected = await provider.detectLanguage(sentences[0]);
         console.log("Detected language:", languageDetected);
@@ -19,7 +19,10 @@ async function runTranslationPipeline(input: TextToTranslateRequest, grammar?: b
         if (languageDetected.toLowerCase() !== input.l2) {
             throw new Error("From verifyL2: Input text does not match the specified target language (l2).")
         }
-        const translatedText = await provider.translateText(input.text, input.l1, input.l2, sentences.length);
+        const translatedText = await Promise.all(
+            sentences.map((sentence) => provider.translateText(sentence, input.l1, input.l2))
+        );
+
         let glossedText;
         let grammarPoints;
         if (input.l2 === 'zh'){
