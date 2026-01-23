@@ -23,10 +23,8 @@ Los códigos ISO 639-1 aceptados se definen en `src/schemas/languages.ts`:
   Respuesta de saludo simple para verificar que el servicio está vivo.
 - `GET /languages`  
   Devuelve el listado de idiomas soportados.
-- `POST /translate`  
-  Traduce el texto recibido en `text` desde `l2` hacia `l1`, devuelve texto traducido, glosas morfema a morfema y puntos de gramática cuando aplican.
-- `POST /translate/chinese`  
-  Variante especializada cuando el idioma destino (`l2`) es chino (`zh`). Además de la traducción, devuelve segmentación en hanzi, pinyin y glosa al idioma origen (`l1`).
+- `POST /translate/:grammar?`  
+  Traduce el texto recibido en `text` desde `l2` hacia `l1`, devuelve texto traducido y glosas morfema a morfema. Cuando `:grammar` tiene cualquier valor, agrega puntos gramaticales. Si `l2` es chino (`zh`), la glosa incluye segmentacion en hanzi y pinyin.
 
 ### Uso del script `start-backend.sh`
 1. Asegúrate de tener **Bun** instalado y disponible en el `PATH`.
@@ -47,15 +45,6 @@ Los códigos ISO 639-1 aceptados se definen en `src/schemas/languages.ts`:
   "text": "Esto es un ejemplo simple.",
   "l1": "es",
   "l2": "en"
-}
-```
-
-`POST /translate/chinese`
-```json
-{
-  "text": "你好世界",
-  "l1": "es",
-  "l2": "zh"
 }
 ```
 
@@ -88,10 +77,8 @@ ISO 639-1 codes defined in `src/schemas/languages.ts`:
   Simple greeting to confirm the service is running.
 - `GET /languages`  
   Returns the list of supported languages.
-- `POST /translate`  
-  Translates the `text` field from `l2` into `l1`, returning translated sentences, morpheme-by-morpheme glosses, and grammar points when available.
-- `POST /translate/chinese`  
-  Specialized flow when the target language (`l2`) is Chinese (`zh`). In addition to translation, it returns hanzi segmentation, pinyin, and glossed words in the source language (`l1`).
+- `POST /translate/:grammar?`  
+  Translates the `text` field from `l2` into `l1`, returning translated sentences and morpheme-by-morpheme glosses. When `:grammar` has any value, grammar points are included. If `l2` is Chinese (`zh`), the gloss includes hanzi segmentation and pinyin.
 
 ### Using `start-backend.sh`
 1. Ensure **Bun** is installed and available in your `PATH`.
@@ -115,15 +102,110 @@ ISO 639-1 codes defined in `src/schemas/languages.ts`:
 }
 ```
 
-`POST /translate/chinese`
-```json
-{
-  "text": "你好世界",
-  "l1": "en",
-  "l2": "zh"
-}
-```
-
 ### Quick development
 - Install dependencies (if needed): `bun install`
 - Start the server: `bun run src/index.ts` or use `./start-backend.sh` to handle environment variables automatically.
+
+---
+
+## API documentation (English)
+
+### Base URL
+- Local: `http://localhost:3000`
+
+### Endpoints
+
+#### `GET /`
+Simple health check.
+
+Response:
+```text
+Hello Language Enthusiast!
+```
+
+#### `GET /languages`
+Returns the supported ISO 639-1 language codes.
+
+Response:
+```json
+{
+  "languages": ["spanish", "english", "portuguese", "chinese", "vietnamese"]
+}
+```
+
+#### `POST /translate/:grammar?`
+Translates from `l2` (source text language) to `l1` (student native language) and returns interlinear glosses. If `:grammar` has any value (for example `/translate/1` or `/translate/grammar`), grammar points are included. If `l2` is `zh`, the gloss includes hanzi segmentation and pinyin.
+
+Request body:
+```json
+{
+  "text": "This is a simple example.",
+  "l1": "en",
+  "l2": "es"
+}
+```
+
+Response (alphabetic languages):
+```json
+{
+  "request_id": "0195a0f2-0a5f-7ab8-9f19-4c34f99a6f7e",
+  "translatedText": ["This is a simple example."],
+  "glossedText": [
+    {
+      "originalText": ["esto", "es", "un", "ejemplo", "simple"],
+      "glossedWords": ["this", "is", "a", "example", "simple"]
+    }
+  ]
+}
+```
+
+Response with grammar points (`/translate/1`):
+```json
+{
+  "request_id": "0195a0f2-0a5f-7ab8-9f19-4c34f99a6f7e",
+  "translatedText": ["This is a simple example."],
+  "glossedText": [
+    {
+      "originalText": ["esto", "es", "un", "ejemplo", "simple"],
+      "glossedWords": ["this", "is", "a", "example", "simple"]
+    }
+  ],
+  "grammarPoints": {
+    "points": [
+      {
+        "grammar_point": "Ser vs estar",
+        "sentence": "Esto es un ejemplo simple.",
+        "explanation": "The verb ser is used for inherent characteristics..."
+      }
+    ]
+  }
+}
+```
+
+Response when `l2` is `zh`:
+```json
+{
+  "request_id": "0195a0f2-0a5f-7ab8-9f19-4c34f99a6f7e",
+  "translatedText": ["Hello world"],
+  "glossedText": [
+    {
+      "separateWords": ["你好", "世界"],
+      "pinyin": ["ni hao", "shi jie"],
+      "glossedWords": ["hello", "world"]
+    }
+  ]
+}
+```
+
+### Validation rules
+- `text` must be between 1 and 450 characters after trimming and collapsing whitespace.
+- `l1` and `l2` must be different and must match supported ISO 639-1 codes.
+- The detected language of `text` must match `l2` (otherwise the request is rejected).
+
+### Environment variables
+- `AI_KEY`: API key for the LLM provider.
+- `AI_BASE_URL`: Base URL for the LLM provider.
+- `AI_MODEL`: Model used for glossing and grammar extraction (defaults to `qwen3-max`).
+
+### OpenAPI
+See the standalone spec in `openapi.yaml`.

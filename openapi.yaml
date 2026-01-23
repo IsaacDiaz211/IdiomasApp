@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  title: IdiomasApp API
+  version: 1.0.0
+  description: |
+    IdiomasApp is a translation and linguistic analysis API. It translates from l2 to l1,
+    generates interlinear glosses, and can return grammar points when the grammar flag is set.
+servers:
+  - url: http://localhost:3000
+paths:
+  /:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is running
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: Hello Language Enthusiast!
+  /languages:
+    get:
+      summary: List supported languages
+      responses:
+        "200":
+          description: Supported language names
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - languages
+              example:
+                languages:
+                  - spanish
+                  - english
+                  - portuguese
+                  - chinese
+                  - vietnamese
+  /translate:
+    post:
+      summary: Translate text and return interlinear glosses
+      description: |
+        Translates from l2 (source language) to l1 (target language). Returns interlinear
+        glosses and a translated sentence list. When l2 is zh, the gloss includes hanzi
+        segmentation and pinyin. Use /translate/{grammar} to include grammar points.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TextRequest"
+      responses:
+        "200":
+          description: Translation result
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TextResponseAlphabetic"
+                  - $ref: "#/components/schemas/TextResponseChinese"
+        "400":
+          description: Validation error
+  /translate/{grammar}:
+    post:
+      summary: Translate text and return grammar points
+      description: |
+        Same as /translate, but includes grammar points whenever {grammar} has any value
+        (for example /translate/1 or /translate/grammar).
+      parameters:
+        - name: grammar
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Any non-empty value enables grammar point extraction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TextRequest"
+      responses:
+        "200":
+          description: Translation result with grammar points
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TextResponseAlphabeticWithGrammar"
+                  - $ref: "#/components/schemas/TextResponseChineseWithGrammar"
+        "400":
+          description: Validation error
+components:
+  schemas:
+    TextRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 450
+          description: Text in l2 to translate.
+        l1:
+          type: string
+          description: ISO 639-1 code for the student native language.
+          examples:
+            - es
+        l2:
+          type: string
+          description: ISO 639-1 code for the text source language.
+          examples:
+            - en
+      required:
+        - text
+        - l1
+        - l2
+    GlossedText:
+      type: object
+      properties:
+        originalText:
+          type: array
+          items:
+            type: string
+        glossedWords:
+          type: array
+          items:
+            type: string
+      required:
+        - originalText
+        - glossedWords
+    GlossedChineseText:
+      type: object
+      properties:
+        separateWords:
+          type: array
+          items:
+            type: string
+        pinyin:
+          type: array
+          items:
+            type: string
+        glossedWords:
+          type: array
+          items:
+            type: string
+      required:
+        - separateWords
+        - pinyin
+        - glossedWords
+    GrammarPoints:
+      type: object
+      properties:
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              grammar_point:
+                type: string
+              sentence:
+                type: string
+              explanation:
+                type: string
+            required:
+              - grammar_point
+              - sentence
+              - explanation
+      required:
+        - points
+    TextResponseAlphabetic:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        translatedText:
+          type: array
+          items:
+            type: string
+        glossedText:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlossedText"
+      required:
+        - request_id
+        - translatedText
+        - glossedText
+    TextResponseAlphabeticWithGrammar:
+      allOf:
+        - $ref: "#/components/schemas/TextResponseAlphabetic"
+        - type: object
+          properties:
+            grammarPoints:
+              $ref: "#/components/schemas/GrammarPoints"
+          required:
+            - grammarPoints
+    TextResponseChinese:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        translatedText:
+          type: array
+          items:
+            type: string
+        glossedText:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlossedChineseText"
+      required:
+        - request_id
+        - translatedText
+        - glossedText
+    TextResponseChineseWithGrammar:
+      allOf:
+        - $ref: "#/components/schemas/TextResponseChinese"
+        - type: object
+          properties:
+            grammarPoints:
+              $ref: "#/components/schemas/GrammarPoints"
+          required:
+            - grammarPoints
