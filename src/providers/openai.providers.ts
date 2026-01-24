@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, naturalTranslationPrompt, detectLanguagePrompt, grammarPointPrompt } from '../../notes/prompts';
+import { interlinearAlphabeticPrompt, interlinearChinesePrompt, detectLanguagePrompt, grammarPointPrompt } from './prompts';
 import { GlossedSchema, SentencesTranslatedSchema } from "../schemas/response";
 import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
