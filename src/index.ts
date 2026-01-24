@@ -11,11 +11,6 @@ const SupportedLanguages = new Elysia()
     });
 
 const app = new Elysia()
-    .use(cors({
-      origin: "http://localhost:5173",
-      methods: ["GET", "POST"],
-      allowedHeaders: ["Content-Type"]
-    }))
     .use(TranslationController)
     .use(SupportedLanguages)
     .get("/", () => "Hello Language Enthusiast!")
