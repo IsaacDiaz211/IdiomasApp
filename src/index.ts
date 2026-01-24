@@ -19,7 +19,10 @@ const app = new Elysia()
     .use(TranslationController)
     .use(SupportedLanguages)
     .get("/", () => "Hello Language Enthusiast!")
-    .listen(Number(process.env.PORT) || 3000);
+    .listen({
+      port: Number(process.env.PORT) || 3000,
+      hostname: "0.0.0.0"
+    });
 
 console.log(
   `IdiomasApp is running at ${app.server?.hostname}:${app.server?.port}`
