@@ -2,6 +2,8 @@ import { Elysia } from "elysia";
 import { cors } from '@elysiajs/cors';
 import { TranslationController } from "./TranslationController";
 import { supportedLanguages } from "./schemas/languages";
+import { AuthController } from "./AuthController";
+import { AuthMiddleware } from "./middleware/auth";
 
 const SupportedLanguages = new Elysia()
     .get("/languages", () => {
@@ -11,9 +13,15 @@ const SupportedLanguages = new Elysia()
     });
 
 const app = new Elysia()
+    .use(cors({
+      origin: false,
+      methods: [],
+    }))
+    .get("/", () => "Hello Language Enthusiast!")
+    .use(AuthController)
+    .use(AuthMiddleware)
     .use(TranslationController)
     .use(SupportedLanguages)
-    .get("/", () => "Hello Language Enthusiast!")
     .listen({
       port: Number(process.env.PORT) || 3000,
       hostname: "0.0.0.0"

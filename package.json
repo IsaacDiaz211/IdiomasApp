@@ -10,6 +10,8 @@
     "@elysiajs/cors": "^1.4.1",
     "@sinclair/typebox": "^0.34.45",
     "elysia": "^1.4.19",
+    "google-auth-library": "^9.15.0",
+    "jose": "^5.9.3",
     "openai": "^6.15.0",
     "zod": "^4.2.1"
   },

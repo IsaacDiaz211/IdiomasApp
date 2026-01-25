@@ -113,6 +113,14 @@ ISO 639-1 codes defined in `src/schemas/languages.ts`:
 ### Base URL
 - Local: `http://localhost:3000`
 
+### Authentication
+Protected endpoints require a short-lived access token obtained via Play Integrity attestation.
+
+1) Call `POST /auth/attest` with a Play Integrity token.
+2) Use the returned token in `Authorization: Bearer <token>` for protected routes.
+
+Tokens expire after 15 minutes.
+
 ### Endpoints
 
 #### `GET /`
@@ -126,6 +134,9 @@ Hello Language Enthusiast!
 #### `GET /languages`
 Returns the supported ISO 639-1 language codes.
 
+Headers:
+- `Authorization: Bearer <token>`
+
 Response:
 ```json
 {
@@ -133,8 +144,36 @@ Response:
 }
 ```
 
+#### `POST /auth/attest`
+Exchanges a Play Integrity token for a short-lived API token.
+
+Request body:
+```json
+{
+  "integrityToken": "<PLAY_INTEGRITY_TOKEN>"
+}
+```
+
+Response:
+```json
+{
+  "token": "<JWT_TOKEN>",
+  "expiresIn": 900
+}
+```
+
+Error response (invalid attestation):
+```json
+{
+  "error": "Attestation failed"
+}
+```
+
 #### `POST /translate/:grammar?`
 Translates from `l2` (source text language) to `l1` (student native language) and returns interlinear glosses. If `:grammar` has any value (for example `/translate/1` or `/translate/grammar`), grammar points are included. If `l2` is `zh`, the gloss includes hanzi segmentation and pinyin.
+
+Headers:
+- `Authorization: Bearer <token>`
 
 Request body:
 ```json
@@ -156,6 +195,13 @@ Response (alphabetic languages):
       "glossedWords": ["this", "is", "a", "example", "simple"]
     }
   ]
+}
+```
+
+Error response (missing/invalid token):
+```json
+{
+  "error": "Missing or invalid Authorization header"
 }
 ```
 
@@ -206,6 +252,9 @@ Response when `l2` is `zh`:
 - `AI_KEY`: API key for the LLM provider.
 - `AI_BASE_URL`: Base URL for the LLM provider.
 - `AI_MODEL`: Model used for glossing and grammar extraction (defaults to `qwen3-max`).
+- `PLAY_INTEGRITY_PACKAGE_NAME`: Android package name used for Play Integrity validation.
+- `GOOGLE_SERVICE_ACCOUNT_JSON`: Service account JSON (stringified) with Play Integrity access.
+- `ATTESTATION_JWT_SECRET`: Secret used to sign short-lived access tokens.
 
 ### OpenAPI
 See the standalone spec in `openapi.yaml`.

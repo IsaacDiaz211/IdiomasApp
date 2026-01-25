@@ -22,6 +22,8 @@ paths:
   /languages:
     get:
       summary: List supported languages
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Supported language names
@@ -43,6 +45,38 @@ paths:
                   - portuguese
                   - chinese
                   - vietnamese
+  /auth/attest:
+    post:
+      summary: Verify Play Integrity token and issue access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttestationRequest"
+      responses:
+        "200":
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttestationResponse"
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                expiresIn: 900
+        "401":
+          description: Attestation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+              example:
+                error: Attestation failed
   /translate:
     post:
       summary: Translate text and return interlinear glosses
@@ -50,6 +84,8 @@ paths:
         Translates from l2 (source language) to l1 (target language). Returns interlinear
         glosses and a translated sentence list. When l2 is zh, the gloss includes hanzi
         segmentation and pinyin. Use /translate/{grammar} to include grammar points.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -67,12 +103,27 @@ paths:
                   - $ref: "#/components/schemas/TextResponseChinese"
         "400":
           description: Validation error
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+              example:
+                error: Missing or invalid Authorization header
   /translate/{grammar}:
     post:
       summary: Translate text and return grammar points
       description: |
         Same as /translate, but includes grammar points whenever {grammar} has any value
         (for example /translate/1 or /translate/grammar).
+      security:
+        - bearerAuth: []
       parameters:
         - name: grammar
           in: path
@@ -97,8 +148,43 @@ paths:
                   - $ref: "#/components/schemas/TextResponseChineseWithGrammar"
         "400":
           description: Validation error
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+              example:
+                error: Missing or invalid Authorization header
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
+    AttestationRequest:
+      type: object
+      properties:
+        integrityToken:
+          type: string
+      required:
+        - integrityToken
+    AttestationResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresIn:
+          type: number
+      required:
+        - token
+        - expiresIn
     TextRequest:
       type: object
       properties:
