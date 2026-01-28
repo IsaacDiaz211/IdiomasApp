@@ -111,7 +111,7 @@ ISO 639-1 codes defined in `src/schemas/languages.ts`:
 ## API documentation (English)
 
 ### Base URL
-- Local: `http://localhost:3000`
+- Local: ``
 
 ### Authentication
 Protected endpoints require a short-lived access token obtained via Play Integrity attestation.

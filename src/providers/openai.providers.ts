@@ -20,7 +20,7 @@ export class OpenAIProvider implements LLMProvider {
     async detectLanguage(text: string): Promise<string> {
         let prompt = detectLanguagePrompt(text);
         const completion = await this.openai.chat.completions.create({
-            model: "qwen-flash",
+            model: process.env.AI_MODEL || "qwen-flash",
             messages: [
                 { role: "system", content: "You are a helpful translator and language expert." },
                 { role: "user", content: prompt }
@@ -38,7 +38,7 @@ export class OpenAIProvider implements LLMProvider {
     async translateText(text: string, l1: string, l2: string): Promise<string> {
         try {
             const completion = await this.openai.chat.completions.create({
-                model: "qwen-mt-plus", 
+                model: process.env.AI_MODEL || "qwen-mt-plus", 
                 messages: [
                     { role: "user", content: text }
                 ],
