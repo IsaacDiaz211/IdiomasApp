@@ -1,11 +1,9 @@
 // Definition of contract for LLM providers
-import OpenAI from "openai";
 import { GlossedSentence } from '../schemas/response';
 import { GlossedChineseSentence } from '../schemas/chineseResponse';
 import { GrammarArray } from "../schemas/grammar";
 
 export interface LLMProvider {
-    openai: OpenAI;
     detectLanguage(text: string): Promise<string>;
     translateText(text: string, l1: string, l2: string): Promise<string>;
     glossText(text: string, l1: string, l2: string): Promise<GlossedSentence>;

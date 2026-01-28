@@ -7,7 +7,6 @@ import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
-import { tr } from "zod/v4/locales";
 
 export class OpenAIProvider implements LLMProvider {
     openai = new OpenAI(
