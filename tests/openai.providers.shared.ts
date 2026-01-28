@@ -1,12 +1,23 @@
 import { describe, it, expect } from "bun:test";
 import { OpenAIProvider } from "../src/providers/openai.providers";
+import { MistralProvider } from "../src/providers/mistral.provider";
 
 type TestTarget = "local" | "railway";
+type TestProvider = "openai" | "mistral";
 
-const requiredEnv = ["AI_KEY", "AI_BASE_URL", "AI_MODEL"] as const;
+const requiredEnvByProvider: Record<TestProvider, string[]> = {
+  openai: ["AI_KEY", "AI_BASE_URL", "AI_MODEL"],
+  mistral: ["MISTRAL_API_KEY"]
+};
 
-const hasRequiredEnv = (): boolean => {
-  return requiredEnv.every((key) => {
+const getProvider = (): TestProvider | null => {
+  const provider = process.env.TEST_PROVIDER?.trim().toLowerCase();
+  if (provider === "openai" || provider === "mistral") return provider;
+  return null;
+};
+
+const hasRequiredEnv = (provider: TestProvider): boolean => {
+  return requiredEnvByProvider[provider].every((key) => {
     const value = process.env[key];
     return Boolean(value && value.trim().length > 0);
   });
@@ -22,16 +33,22 @@ const nonEmptyStrings = (values: string[]) => {
 };
 
 export const registerOpenAIProviderTests = (target: TestTarget) => {
-  const shouldRun = process.env.TEST_TARGET === target && hasRequiredEnv();
+  const provider = getProvider();
+  const shouldRun =
+    process.env.TEST_TARGET === target &&
+    provider !== null &&
+    hasRequiredEnv(provider);
   const describeFn = makeDescribe(shouldRun);
 
-  describeFn(`OpenAIProvider integration (${target})`, () => {
-    const provider = new OpenAIProvider();
+  describeFn(`Provider integration (${target})`, () => {
+    const providerInstance = provider === "mistral"
+      ? new MistralProvider()
+      : new OpenAIProvider();
 
     it(
       "detectLanguage returns ISO code",
       async () => {
-        const result = await provider.detectLanguage("Hello world.");
+        const result = await providerInstance.detectLanguage("Hello world.");
         expect(result).toMatch(/^[a-z]{2}$/);
         expect(result).toBe("en");
       },
@@ -41,7 +58,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "translateText Spanish to English",
       async () => {
-        const result = await provider.translateText("Hola mundo.", "en", "es");
+        const result = await providerInstance.translateText("Hola mundo.", "en", "es");
         expect(result.trim().length).toBeGreaterThan(0);
       },
       { timeout: 30000 }
@@ -50,7 +67,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "translateText English to Spanish",
       async () => {
-        const result = await provider.translateText("Hello world.", "es", "en");
+        const result = await providerInstance.translateText("Hello world.", "es", "en");
         expect(result.trim().length).toBeGreaterThan(0);
       },
       { timeout: 30000 }
@@ -59,7 +76,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "glossText Spanish to English",
       async () => {
-        const result = await provider.glossText("Hola mundo.", "en", "es");
+        const result = await providerInstance.glossText("Hola mundo.", "en", "es");
         expect(result.originalText.length).toBe(result.glossedWords.length);
         nonEmptyStrings(result.originalText);
         nonEmptyStrings(result.glossedWords);
@@ -70,7 +87,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "glossText English to Spanish",
       async () => {
-        const result = await provider.glossText("Hello world.", "es", "en");
+        const result = await providerInstance.glossText("Hello world.", "es", "en");
         expect(result.originalText.length).toBe(result.glossedWords.length);
         nonEmptyStrings(result.originalText);
         nonEmptyStrings(result.glossedWords);
@@ -81,7 +98,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "glossChineseText Chinese to Spanish",
       async () => {
-        const result = await provider.glossChineseText("你好世界。", "es");
+        const result = await providerInstance.glossChineseText("你好世界。", "es");
         expect(result.separateWords.length).toBe(result.pinyin.length);
         expect(result.separateWords.length).toBe(result.glossedWords.length);
         nonEmptyStrings(result.separateWords);
@@ -94,7 +111,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "glossChineseText Chinese to English",
       async () => {
-        const result = await provider.glossChineseText("你好世界。", "en");
+        const result = await providerInstance.glossChineseText("你好世界。", "en");
         expect(result.separateWords.length).toBe(result.pinyin.length);
         expect(result.separateWords.length).toBe(result.glossedWords.length);
         nonEmptyStrings(result.separateWords);
@@ -107,7 +124,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "getGrammarPoints Spanish to English",
       async () => {
-        const result = await provider.getGrammarPoints(
+        const result = await providerInstance.getGrammarPoints(
           "Hola, esto es una prueba simple.",
           "en",
           "es"
@@ -127,7 +144,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "getGrammarPoints English to Spanish",
       async () => {
-        const result = await provider.getGrammarPoints(
+        const result = await providerInstance.getGrammarPoints(
           "This is a short grammar test.",
           "es",
           "en"
@@ -147,7 +164,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "getGrammarPoints Chinese to English",
       async () => {
-        const result = await provider.getGrammarPoints(
+        const result = await providerInstance.getGrammarPoints(
           "你好，我在学习中文。",
           "en",
           "zh"
@@ -167,7 +184,7 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     it(
       "getGrammarPoints Chinese to Spanish",
       async () => {
-        const result = await provider.getGrammarPoints(
+        const result = await providerInstance.getGrammarPoints(
           "你好，我在学习中文。",
           "es",
           "zh"

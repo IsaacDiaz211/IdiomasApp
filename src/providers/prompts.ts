@@ -55,3 +55,29 @@ Return ONLY valid json in the response, as a single object with a "points" array
 {"points":[{"grammar_point":"","sentence":"","explanation":""}]}
 Do not include any additional information, and the field "explanation" don't surpass 150 words.
 The text is:\n${text}.`;
+
+export const interlinearAlphabeticPromptMistral = (l1: string, l2: string, text: string) => `
+Provide an interlinear gloss from ${l2} to ${l1}.
+Return ONLY valid JSON with exactly one key "morphemes".
+"morphemes" must be an array of objects, each with exactly two keys: "morpheme" and "gloss".
+The order must follow the original text in ${l2}. Do not include punctuation as separate morphemes.
+Do not include markdown, code fences, or any extra text outside the JSON object.
+Example:
+Input: "Hello world"
+Output: {"morphemes":[{"morpheme":"hello","gloss":"hola"},{"morpheme":"world","gloss":"mundo"}]}
+Text:
+${text}
+`;
+
+export const interlinearChinesePromptMistral = (l1: string, text: string) => `
+Provide an interlinear gloss from Mandarin Chinese to ${l1}.
+Return ONLY valid JSON with exactly one key "morphemes".
+"morphemes" must be an array of objects, each with exactly three keys: "hanzi", "pinyin", and "gloss".
+The order must follow the original text in Chinese. Do not include punctuation as separate morphemes.
+Do not include markdown, code fences, or any extra text outside the JSON object.
+Example:
+Input: "你好世界"
+Output: {"morphemes":[{"hanzi":"你好","pinyin":"ni hao","gloss":"hello"},{"hanzi":"世界","pinyin":"shi jie","gloss":"world"}]}
+Text:
+${text}
+`;

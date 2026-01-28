@@ -1,83 +1,157 @@
 import { Mistral } from '@mistralai/mistralai';
-import { zodResponseFormat } from "openai/helpers/zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { ResponseFormat } from "@mistralai/mistralai/models/components/responseformat";
 import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, detectLanguagePrompt, grammarPointPrompt, naturalTranslationPrompt } from './prompts';
-import { GlossedSchema, SentencesTranslatedSchema } from "../schemas/response";
+import { interlinearAlphabeticPromptMistral, interlinearChinesePromptMistral, detectLanguagePrompt, grammarPointPrompt, naturalTranslationPrompt } from './prompts';
+import { GlossedSchema } from "../schemas/response";
 import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
+
+export interface Morpheme {
+  morpheme: string;
+  gloss: string;
+  hanzi?: string;
+  pinyin?: string;
+}
+
+export interface GlossedTranslation {
+  morphemes: Morpheme[];
+}
+
+export interface GrammarPoint {
+  term: string;
+  explanation: string;
+  example: string;
+}
+
+export type GrammarArrayType = GrammarPoint[];
+
+const buildResponseFormat = (schema: unknown, name: string): ResponseFormat => ({
+    type: "json_schema",
+    jsonSchema: {
+        name,
+        schemaDefinition: zodToJsonSchema(schema as any),
+        strict: true
+    }
+});
+
+const extractIsoCode = (content: string): string | null => {
+    const normalized = content.toLowerCase();
+    const quoted = normalized.match(/["']([a-z]{2})["']/);
+    if (quoted) return quoted[1];
+    const matches = normalized.match(/\b[a-z]{2}\b/g);
+    if (!matches || matches.length === 0) return null;
+    return matches[matches.length - 1] ?? null;
+};
+
 
 export class MistralProvider implements LLMProvider {
 
     client = new Mistral({apiKey: process.env.MISTRAL_API_KEY});
 
     async detectLanguage(text: string): Promise<string> {
-        let prompt = detectLanguagePrompt(text);
+        let prompt = `${detectLanguagePrompt(text)}\nRespond with only the ISO 639-1 two-letter code.`;
+        try {
         const chatResponse = await this.client.chat.complete({
             model: 'mistral-tiny-latest',
-            messages: [{role: 'user', content: prompt}]
+            messages: [{ role: 'user', content: prompt }],
         });
-        const content = chatResponse.choices[0].message.content;
+
+        const content = chatResponse.choices[0]?.message?.content;
         if (!content || typeof content !== 'string') {
-            throw new Error("From detectLanguage: No response from LLM.");
+            throw new Error('Invalid response format from Mistral API.');
         }
-        const response = content.toLowerCase().trim();
-        return response;
+
+        const code = extractIsoCode(content);
+        if (!code) {
+            throw new Error('Invalid ISO 639-1 code response from Mistral API.');
+        }
+        return code;
+        } catch (error) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : 'Unknown error occurred while detecting language.';
+        throw new Error(`Language detection failed for text "${text}": ${errorMessage}`);
+        }
     }
 
     async translateText(text: string, l1: string, l2: string): Promise<string> {
         const prompt = naturalTranslationPrompt(l1, l2, text);
+        try {
         const chatResponse = await this.client.chat.complete({
             model: 'mistral-large-latest',
-            messages: [{role: 'user', content: prompt}],
+            messages: [{ role: 'user', content: prompt }],
         });
-        const translation = chatResponse.choices[0].message.content;
+
+        const translation = chatResponse.choices[0]?.message?.content;
         if (!translation || typeof translation !== 'string') {
-            throw new Error("From traslateText(null): Failed to parse translated text.");
+            throw new Error('Invalid translation response format.');
         }
-        return translation;
+
+        return translation.trim();
+        } catch (error) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : 'Unknown error occurred during translation.';
+        throw new Error(`Translation failed for text "${text}": ${errorMessage}`);
+        }
     }
 
     async glossText(text: string, l1: string, l2: string): Promise<GlossedSentence> {
-        const prompt = interlinearAlphabeticPrompt(l1, l2, text);
+        const prompt = interlinearAlphabeticPromptMistral(l1, l2, text);
+        try {
         const chatResponse = await this.client.chat.complete({
             model: 'mistral-large-latest',
-            messages: [{role: 'user', content: prompt}],
-            responseFormat: zodResponseFormat(GlossedSchema, "glossedText"),
+            messages: [{ role: 'user', content: prompt }],
+            responseFormat: buildResponseFormat(GlossedSchema, 'glossedText'),
         });
-        const content = chatResponse.choices[0].message.content;
+
+        const content = chatResponse.choices[0]?.message?.content;
         if (!content || typeof content !== 'string') {
-            throw new Error("Failed to parse glossed translation.");
+            throw new Error('Invalid gloss response format.');
         }
 
-        const glossedTranslation = JSON.parse(content);
-        const result: GlossedSentence = {
-            originalText: glossedTranslation.morphemes.map((s: any) => s.morpheme.trim()),
-            glossedWords: glossedTranslation.morphemes.map((s: any) => s.gloss.trim())
+        const glossedTranslation = GlossedSchema.parse(JSON.parse(content));
+        return {
+            originalText: glossedTranslation.morphemes.map((m: Morpheme) => m.morpheme.trim()),
+            glossedWords: glossedTranslation.morphemes.map((m: Morpheme) => m.gloss.trim()),
         };
-        return result;
+        } catch (error) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : 'Unknown error occurred while glossing text.';
+        throw new Error(`Glossing failed for text "${text}": ${errorMessage}`);
+        }
     }
 
     async glossChineseText(text: string, l1: string): Promise<GlossedChineseSentence> {
-        const prompt = interlinearChinesePrompt(l1, text);
+        const prompt = interlinearChinesePromptMistral(l1, text);
+        try {
         const chatResponse = await this.client.chat.complete({
             model: 'mistral-large-latest',
-            messages: [{role: 'user', content: prompt}],
-            responseFormat: zodResponseFormat(GlossedChineseSchema, "glossedText"),
+            messages: [{ role: 'user', content: prompt }],
+            responseFormat: buildResponseFormat(GlossedChineseSchema, 'glossedText'),
         });
-        const content = chatResponse.choices[0].message.content;
+
+        const content = chatResponse.choices[0]?.message?.content;
         if (!content || typeof content !== 'string') {
-            throw new Error("Failed to parse glossed translation.");
+            throw new Error('Invalid gloss response format for Chinese text.');
         }
 
-        const glossedTranslation = JSON.parse(content);
-        const result: GlossedChineseSentence = {
-            separateWords: glossedTranslation.morphemes.map((s: any) => s.hanzi.trim()),
-            pinyin: glossedTranslation.morphemes.map((s: any) => s.pinyin.trim()),
-            glossedWords: glossedTranslation.morphemes.map((s: any) => s.gloss.trim())
+        const glossedTranslation = GlossedChineseSchema.parse(JSON.parse(content));
+        return {
+            separateWords: glossedTranslation.morphemes.map((m: { hanzi?: string; pinyin?: string; gloss: string }) => m.hanzi?.trim() || ''),
+            pinyin: glossedTranslation.morphemes.map((m: { hanzi?: string; pinyin?: string; gloss: string }) => m.pinyin?.trim() || ''),
+            glossedWords: glossedTranslation.morphemes.map((m: { hanzi?: string; pinyin?: string; gloss: string }) => m.gloss.trim()),
         };
-        return result;
+        } catch (error) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : 'Unknown error occurred while glossing Chinese text.';
+        throw new Error(`Chinese glossing failed for text "${text}": ${errorMessage}`);
+        }
     }
 
     async getGrammarPoints(text: string, l1: string, l2: string): Promise<GrammarArray> {
@@ -85,7 +159,7 @@ export class MistralProvider implements LLMProvider {
         const chatResponse = await this.client.chat.complete({
             model: 'mistral-large-latest',
             messages: [{role: 'user', content: prompt}],
-            responseFormat: zodResponseFormat(GrammarArraySchema, "grammarPoints"),
+            responseFormat: buildResponseFormat(GrammarArraySchema, "grammarPoints"),
         });
         const grammarPoints = chatResponse.choices[0].message.content;
 
