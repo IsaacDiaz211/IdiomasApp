@@ -24,6 +24,16 @@ async function runTranslationPipeline(input: TextToTranslateRequest, detecting: 
                 );
             provider = new OpenAIProvider(openai);
         } else {
+            if((input.l1 === 'ko' && input.l2 ==='en') || (input.l1 === 'en' && input.l2 ==='ko')) {
+                const openai = new OpenAI(
+                    {
+                        apiKey: process.env.OPEN_ROUTER_KEY,
+                        baseURL: process.env.OPEN_ROUTER_BASE_URL,
+                    }
+                );
+                const model = process.env.KOREAN_MODEL || "upstage/solar-pro-3:free";
+                provider = new OpenAIProvider(openai, model);
+            }
             const mistral = new Mistral({apiKey: process.env.MISTRAL_API_KEY});
             provider = new MistralProvider(mistral);
         }

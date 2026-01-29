@@ -4,4 +4,5 @@ export const supportedLanguages: Record<string, string> = {
   "pt": "portuguese",
   "zh": "chinese",
   "vi": "vietnamese",
+  "ko": "korean"
 };
