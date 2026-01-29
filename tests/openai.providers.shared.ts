@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test";
+import OpenAI from "openai";
+import { Mistral } from "@mistralai/mistralai";
 import { OpenAIProvider } from "../src/providers/openai.providers";
 import { MistralProvider } from "../src/providers/mistral.provider";
 
@@ -6,8 +8,8 @@ type TestTarget = "local" | "railway";
 type TestProvider = "openai" | "mistral";
 
 const requiredEnvByProvider: Record<TestProvider, string[]> = {
-  openai: ["AI_KEY", "AI_BASE_URL", "AI_MODEL"],
-  mistral: ["MISTRAL_API_KEY"]
+  openai: ["AI_KEY", "AI_BASE_URL", "AI_MODEL", "LONGCAT_KEY", "LONGCAT_BASE_URL"],
+  mistral: ["MISTRAL_API_KEY", "LONGCAT_KEY", "LONGCAT_BASE_URL"]
 };
 
 const getProvider = (): TestProvider | null => {
@@ -41,9 +43,16 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
   const describeFn = makeDescribe(shouldRun);
 
   describeFn(`Provider integration (${target})`, () => {
+    if (!provider) return;
     const providerInstance = provider === "mistral"
-      ? new MistralProvider()
-      : new OpenAIProvider();
+      ? new MistralProvider(new Mistral({ apiKey: process.env.MISTRAL_API_KEY }))
+      : new OpenAIProvider(
+          new OpenAI({
+            apiKey: process.env.AI_KEY,
+            baseURL: process.env.AI_BASE_URL
+          }),
+          process.env.AI_MODEL
+        );
 
     it(
       "detectLanguage returns ISO code",
@@ -74,6 +83,32 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
     );
 
     it(
+      "translateText Korean to English",
+      async () => {
+        const result = await providerInstance.translateText(
+          "안녕하세요. 이것은 간단한 테스트입니다.",
+          "en",
+          "ko"
+        );
+        expect(result.trim().length).toBeGreaterThan(0);
+      },
+      { timeout: 30000 }
+    );
+
+    it(
+      "translateText English to Korean",
+      async () => {
+        const result = await providerInstance.translateText(
+          "Hello. This is a simple test.",
+          "ko",
+          "en"
+        );
+        expect(result.trim().length).toBeGreaterThan(0);
+      },
+      { timeout: 30000 }
+    );
+
+    it(
       "glossText Spanish to English",
       async () => {
         const result = await providerInstance.glossText("Hola mundo.", "en", "es");
@@ -88,6 +123,36 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
       "glossText English to Spanish",
       async () => {
         const result = await providerInstance.glossText("Hello world.", "es", "en");
+        expect(result.originalText.length).toBe(result.glossedWords.length);
+        nonEmptyStrings(result.originalText);
+        nonEmptyStrings(result.glossedWords);
+      },
+      { timeout: 45000 }
+    );
+
+    it(
+      "glossText Korean to English",
+      async () => {
+        const result = await providerInstance.glossText(
+          "안녕하세요. 이것은 간단한 테스트입니다.",
+          "en",
+          "ko"
+        );
+        expect(result.originalText.length).toBe(result.glossedWords.length);
+        nonEmptyStrings(result.originalText);
+        nonEmptyStrings(result.glossedWords);
+      },
+      { timeout: 45000 }
+    );
+
+    it(
+      "glossText English to Korean",
+      async () => {
+        const result = await providerInstance.glossText(
+          "Hello. This is a simple test.",
+          "ko",
+          "en"
+        );
         expect(result.originalText.length).toBe(result.glossedWords.length);
         nonEmptyStrings(result.originalText);
         nonEmptyStrings(result.glossedWords);
@@ -188,6 +253,46 @@ export const registerOpenAIProviderTests = (target: TestTarget) => {
           "你好，我在学习中文。",
           "es",
           "zh"
+        );
+        expect(Array.isArray(result.points)).toBe(true);
+        expect(result.points.length).toBeGreaterThan(0);
+        expect(result.points.length).toBeLessThanOrEqual(3);
+        result.points.forEach((point) => {
+          expect(point.grammar_point.trim().length).toBeGreaterThan(0);
+          expect(point.sentence.trim().length).toBeGreaterThan(0);
+          expect(point.explanation.trim().length).toBeGreaterThan(0);
+        });
+      },
+      { timeout: 45000 }
+    );
+
+    it(
+      "getGrammarPoints Korean to English",
+      async () => {
+        const result = await providerInstance.getGrammarPoints(
+          "안녕하세요. 이것은 간단한 테스트입니다.",
+          "en",
+          "ko"
+        );
+        expect(Array.isArray(result.points)).toBe(true);
+        expect(result.points.length).toBeGreaterThan(0);
+        expect(result.points.length).toBeLessThanOrEqual(3);
+        result.points.forEach((point) => {
+          expect(point.grammar_point.trim().length).toBeGreaterThan(0);
+          expect(point.sentence.trim().length).toBeGreaterThan(0);
+          expect(point.explanation.trim().length).toBeGreaterThan(0);
+        });
+      },
+      { timeout: 45000 }
+    );
+
+    it(
+      "getGrammarPoints English to Korean",
+      async () => {
+        const result = await providerInstance.getGrammarPoints(
+          "Hello. This is a simple test.",
+          "ko",
+          "en"
         );
         expect(Array.isArray(result.points)).toBe(true);
         expect(result.points.length).toBeGreaterThan(0);

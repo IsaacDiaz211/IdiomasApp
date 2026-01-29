@@ -47,6 +47,21 @@ const run = async () => {
     env.MISTRAL_API_KEY = await askEnv("MISTRAL_API_KEY");
   }
 
+  const longcatKey = process.env.LONGCAT_KEY?.trim();
+  const longcatBaseUrl = process.env.LONGCAT_BASE_URL?.trim();
+  const longcatModel = process.env.LONGCAT_MODEL?.trim();
+
+  if (!longcatKey || !longcatBaseUrl) {
+    stdout.write("LONGCAT_KEY and LONGCAT_BASE_URL must be set in the environment.\n");
+    process.exit(1);
+  }
+
+  env.LONGCAT_KEY = longcatKey;
+  env.LONGCAT_BASE_URL = longcatBaseUrl;
+  if (longcatModel) {
+    env.LONGCAT_MODEL = longcatModel;
+  }
+
   const testFile = `./tests/openai.providers.${target}.test.ts`;
   const child = spawn("bun", ["test", testFile], { stdio: "inherit", env });
   child.on("exit", (code) => {

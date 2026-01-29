@@ -38,16 +38,6 @@ const buildResponseFormat = (schema: unknown, name: string): ResponseFormat => (
     }
 });
 
-const extractIsoCode = (content: string): string | null => {
-    const normalized = content.toLowerCase();
-    const quoted = normalized.match(/["']([a-z]{2})["']/);
-    if (quoted) return quoted[1];
-    const matches = normalized.match(/\b[a-z]{2}\b/g);
-    if (!matches || matches.length === 0) return null;
-    return matches[matches.length - 1] ?? null;
-};
-
-
 export class MistralProvider implements LLMProvider {
 
     constructor(public client: Mistral) {}

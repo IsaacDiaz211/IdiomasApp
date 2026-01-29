@@ -7,6 +7,7 @@ import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export class OpenAIProvider implements LLMProvider {
     
@@ -43,9 +44,9 @@ export class OpenAIProvider implements LLMProvider {
     async translateText(text: string, l1: string, l2: string): Promise<string> {
         try {
             let translation: string | null;
-            if(this.model === "qwen-mt-plus") {
+            if(this.model === "qwen3-max-2026-01-23") {
                 const completion = await this.openai.chat.completions.create({
-                    model: this.model || "qwen-mt-plus", 
+                    model: "qwen-mt-plus", 
                     messages: [
                         { role: "user", content: text }
                     ],
