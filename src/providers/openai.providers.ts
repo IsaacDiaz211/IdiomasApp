@@ -9,17 +9,19 @@ import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
 
 export class OpenAIProvider implements LLMProvider {
-    openai = new OpenAI(
-        {
-            apiKey: process.env.AI_KEY,
-            baseURL: process.env.AI_BASE_URL,
-        }
-    );
+    
+    constructor(public openai: OpenAI) {}
 
     async detectLanguage(text: string): Promise<string> {
+        const cat = new OpenAI(
+                            {
+                                apiKey: process.env.LONGCAT_KEY,
+                                baseURL: process.env.LONGCAT_BASE_URL,
+                            }
+                        );
         let prompt = detectLanguagePrompt(text);
-        const completion = await this.openai.chat.completions.create({
-            model: process.env.AI_MODEL || "qwen-flash",
+        const completion = await cat.chat.completions.create({
+            model: process.env.LONGCAT_MODEL || "LongCat-Flash-Thinking-2601",
             messages: [
                 { role: "system", content: "You are a helpful translator and language expert." },
                 { role: "user", content: prompt }

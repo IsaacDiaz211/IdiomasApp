@@ -5,9 +5,10 @@ import { LLMProvider } from './llm.providers';
 import { interlinearAlphabeticPromptMistral, interlinearChinesePromptMistral, detectLanguagePrompt, grammarPointPrompt, naturalTranslationPrompt } from './prompts';
 import { GlossedSchema } from "../schemas/response";
 import type { GlossedSentence } from "../schemas/response";
-import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
+import type { GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
+import { OpenAI } from 'openai';
 
 export interface Morpheme {
   morpheme: string;
@@ -49,32 +50,30 @@ const extractIsoCode = (content: string): string | null => {
 
 export class MistralProvider implements LLMProvider {
 
-    client = new Mistral({apiKey: process.env.MISTRAL_API_KEY});
+    constructor(public client: Mistral) {}
 
     async detectLanguage(text: string): Promise<string> {
-        let prompt = `${detectLanguagePrompt(text)}\nRespond with only the ISO 639-1 two-letter code.`;
-        try {
-        const chatResponse = await this.client.chat.complete({
-            model: 'mistral-tiny-latest',
-            messages: [{ role: 'user', content: prompt }],
+        const cat = new OpenAI(
+                    {
+                        apiKey: process.env.LONGCAT_KEY,
+                        baseURL: process.env.LONGCAT_BASE_URL,
+                    }
+                );
+        let prompt = detectLanguagePrompt(text);
+        const completion = await cat.chat.completions.create({
+            model: process.env.LONGCAT_MODEL || "LongCat-Flash-Thinking-2601",
+            messages: [
+                { role: "system", content: "You are a helpful translator and language expert." },
+                { role: "user", content: prompt }
+            ],
         });
-
-        const content = chatResponse.choices[0]?.message?.content;
-        if (!content || typeof content !== 'string') {
-            throw new Error('Invalid response format from Mistral API.');
+        let response = completion.choices[0].message.content;
+        if (!response) {
+            throw new Error("From detectLanguage: No response from LLM.");
+        } else {
+            response = response.toLowerCase().trim();
         }
-
-        const code = extractIsoCode(content);
-        if (!code) {
-            throw new Error('Invalid ISO 639-1 code response from Mistral API.');
-        }
-        return code;
-        } catch (error) {
-        const errorMessage = error instanceof Error
-            ? error.message
-            : 'Unknown error occurred while detecting language.';
-        throw new Error(`Language detection failed for text "${text}": ${errorMessage}`);
-        }
+        return response || "";
     }
 
     async translateText(text: string, l1: string, l2: string): Promise<string> {
