@@ -18,8 +18,8 @@ const app = new Elysia()
       methods: [],
     }))
     .get("/", () => "Hello Language Enthusiast!")
-    .use(AuthController)
-    .use(AuthMiddleware)
+    //.use(AuthController)
+    //.use(AuthMiddleware)
     .use(TranslationController)
     .use(SupportedLanguages)
     .listen({
