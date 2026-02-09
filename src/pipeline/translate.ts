@@ -90,7 +90,8 @@ async function runTranslationPipeline(input: TextToTranslateRequest, detecting: 
             
         }
     } catch (error) {
-        console.error("Error:", error);
+        // Esto desplegará el objeto 'metadata' oculto
+        console.error("Error detallado:", JSON.stringify(error, null, 2));
         throw error;  
     }
 }
