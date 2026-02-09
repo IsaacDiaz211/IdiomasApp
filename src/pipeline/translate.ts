@@ -30,7 +30,7 @@ async function runTranslationPipeline(input: TextToTranslateRequest, detecting: 
                         baseURL: process.env.OPEN_ROUTER_BASE_URL,
                     }
                 );
-            provider = new OpenAIProvider(openai, process.env.STEP_FUN_MODEL);
+            provider = new OpenAIProvider(openai, process.env.TRINITY_MODEL);
         }
         const sentences = getSentences(input.text, input.l2);
         if(detecting) {
