@@ -56,6 +56,90 @@ Return ONLY valid json in the response, as a single object with a "points" array
 Do not include any additional information, and the field "explanation" don't surpass 150 words.
 The text is:\n${text}.`;
 
+export const separateAlphabeticMorphemesPrompt = (sourceLang: string, sentence: string) => `
+Segment the following sentence written in ${sourceLang} into morphemes for interlinear glossing.
+
+Return ONLY valid JSON with exactly this shape:
+{"morphemes":[{"morpheme":"..."}]}
+
+Rules:
+- Keep the original order.
+- Do not include punctuation marks or verse numbers as morphemes.
+- Keep meaningful morpheme granularity for language learners.
+- Do not include markdown or any explanation.
+
+Original sentence:
+${sentence}
+`;
+
+export const separateChineseMorphemesPrompt = (sentence: string) => `
+Segment the following Mandarin Chinese sentence into morphemes for interlinear glossing.
+
+Return ONLY valid JSON with exactly this shape:
+{"morphemes":[{"hanzi":"...","pinyin":"..."}]}
+
+Rules:
+- Keep the original order.
+- Do not include punctuation marks or verse numbers as morphemes.
+- Use standard pinyin with tone marks when possible.
+- Do not include markdown or any explanation.
+
+Original sentence:
+${sentence}
+`;
+
+export const glossFromAlphabeticMorphemesPrompt = (
+  targetLang: string,
+  sourceLang: string,
+  originalSentence: string,
+  morphemes: string[]
+) => `
+Generate interlinear glosses in ${targetLang} from a pre-segmented ${sourceLang} sentence.
+
+Return ONLY valid JSON with exactly this shape:
+{"glossedWords":["..."]}
+
+Rules:
+- Keep exactly one gloss per morpheme.
+- Preserve the same order and same array length as the morphemes list.
+- Use short glosses, not full sentence translations.
+- Do not include markdown or extra text.
+
+Original sentence (${sourceLang}):
+${originalSentence}
+
+Morphemes:
+${JSON.stringify(morphemes)}
+`;
+
+export const glossFromChineseMorphemesPrompt = (
+  targetLang: string,
+  originalSentence: string,
+  morphemes: string[],
+  pinyin: string[]
+) => `
+Generate interlinear glosses in ${targetLang} from a pre-segmented Mandarin Chinese sentence.
+
+Return ONLY valid JSON with exactly this shape:
+{"glossedWords":["..."]}
+
+Rules:
+- Keep exactly one gloss per morpheme.
+- Preserve the same order and same array length as the morphemes list.
+- Use short glosses, not full sentence translations.
+- Use the original sentence for context.
+- Do not include markdown or extra text.
+
+Original sentence (zh):
+${originalSentence}
+
+Morphemes (hanzi):
+${JSON.stringify(morphemes)}
+
+Pinyin:
+${JSON.stringify(pinyin)}
+`;
+
 export const interlinearAlphabeticPromptMistral = (l1: string, l2: string, text: string) => `
 Provide an interlinear gloss from ${l2} to ${l1}.
 Return ONLY valid JSON with exactly one key "morphemes".

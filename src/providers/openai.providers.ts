@@ -1,13 +1,43 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { LLMProvider } from './llm.providers';
-import { interlinearAlphabeticPrompt, interlinearChinesePrompt, detectLanguagePrompt, grammarPointPrompt, naturalTranslationPrompt } from './prompts';
-import { GlossedSchema, SentencesTranslatedSchema } from "../schemas/response";
+import type { LLMProvider } from './llm.providers';
+import {
+    detectLanguagePrompt,
+    glossFromAlphabeticMorphemesPrompt,
+    glossFromChineseMorphemesPrompt,
+    grammarPointPrompt,
+    interlinearAlphabeticPrompt,
+    interlinearChinesePrompt,
+    naturalTranslationPrompt,
+    separateAlphabeticMorphemesPrompt,
+    separateChineseMorphemesPrompt
+} from './prompts';
+import { GlossedSchema } from "../schemas/response";
 import type { GlossedSentence } from "../schemas/response";
 import type { GlossedChinese, GlossedChineseSentence } from "../schemas/chineseResponse";
 import { GlossedChineseSchema } from "../schemas/chineseResponse";
 import { GrammarArray, GrammarArraySchema } from "../schemas/grammar";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import {
+    GlossFromMorphemesSchema,
+    MorphemeExtractionAlphabeticSchema,
+    MorphemeExtractionChineseSchema
+} from "../schemas/intermediate";
+import type { MorphemeData } from "../schemas/intermediate";
+
+function getSentences(text: string, lang: string): string[] {
+    const segmenter = new Intl.Segmenter(lang, { granularity: "sentence" });
+    const segments = segmenter.segment(text);
+    const sentences = Array.from(segments)
+        .map((segment) => segment.segment.trim())
+        .filter((segment) => segment.length > 0);
+
+    if (sentences.length > 0) {
+        return sentences;
+    }
+
+    const fallback = text.trim();
+    return fallback ? [fallback] : [];
+}
 
 export class OpenAIProvider implements LLMProvider {
     
@@ -39,6 +69,182 @@ export class OpenAIProvider implements LLMProvider {
             response = response.toLowerCase().trim();
         }
         return response || "";
+    }
+
+    async separateMorphemes(text: string, sourceLang: string): Promise<MorphemeData> {
+        const normalizedSourceLang = sourceLang.trim().toLowerCase();
+        const sentences = getSentences(text, normalizedSourceLang);
+
+        if (sentences.length === 0) {
+            throw new Error("From separateMorphemes: No sentences found in input text.");
+        }
+
+        if (normalizedSourceLang === "zh") {
+            const separatedSentences = await Promise.all(
+                sentences.map(async (sentence) => {
+                    const prompt = separateChineseMorphemesPrompt(sentence);
+                    const completion = await this.openai.chat.completions.parse({
+                        model: this.model || "qwen3-max",
+                        messages: [
+                            { role: "system", content: "You are a helpful translator and language expert and teacher." },
+                            { role: "user", content: prompt }
+                        ],
+                        response_format: zodResponseFormat(MorphemeExtractionChineseSchema, "separateChineseMorphemes")
+                    });
+
+                    const parsed = completion.choices[0].message.parsed;
+                    if (!parsed) {
+                        throw new Error("From separateMorphemes(zh): Failed to parse separated morphemes.");
+                    }
+
+                    const separateWords = parsed.morphemes.map((morpheme) => morpheme.hanzi.trim());
+                    const pinyin = parsed.morphemes.map((morpheme) => morpheme.pinyin.trim());
+
+                    if (separateWords.some((word) => word.length === 0) || pinyin.some((syllable) => syllable.length === 0)) {
+                        throw new Error("From separateMorphemes(zh): Empty morpheme or pinyin received.");
+                    }
+
+                    return {
+                        originalSentence: sentence,
+                        separateWords,
+                        pinyin
+                    };
+                })
+            );
+
+            return {
+                type: "chinese",
+                sourceLang: normalizedSourceLang,
+                sentences: separatedSentences
+            };
+        }
+
+        const separatedSentences = await Promise.all(
+            sentences.map(async (sentence) => {
+                const prompt = separateAlphabeticMorphemesPrompt(normalizedSourceLang, sentence);
+                const completion = await this.openai.chat.completions.parse({
+                    model: this.model || "qwen3-max",
+                    messages: [
+                        { role: "system", content: "You are a helpful translator and language expert and teacher." },
+                        { role: "user", content: prompt }
+                    ],
+                    response_format: zodResponseFormat(MorphemeExtractionAlphabeticSchema, "separateAlphabeticMorphemes")
+                });
+
+                const parsed = completion.choices[0].message.parsed;
+                if (!parsed) {
+                    throw new Error("From separateMorphemes(alphabetic): Failed to parse separated morphemes.");
+                }
+
+                const separateWords = parsed.morphemes.map((morpheme) => morpheme.morpheme.trim());
+                if (separateWords.some((word) => word.length === 0)) {
+                    throw new Error("From separateMorphemes(alphabetic): Empty morpheme received.");
+                }
+
+                return {
+                    originalSentence: sentence,
+                    separateWords
+                };
+            })
+        );
+
+        return {
+            type: "alphabetic",
+            sourceLang: normalizedSourceLang,
+            sentences: separatedSentences
+        };
+    }
+
+    async glossFromMorphemes(
+        morphemeData: MorphemeData,
+        targetLang: string
+    ): Promise<GlossedSentence[] | GlossedChineseSentence[]> {
+        const normalizedTargetLang = targetLang.trim().toLowerCase();
+
+        if (morphemeData.type === "chinese") {
+            const glossedSentences = await Promise.all(
+                morphemeData.sentences.map(async (sentenceData) => {
+                    const prompt = glossFromChineseMorphemesPrompt(
+                        normalizedTargetLang,
+                        sentenceData.originalSentence,
+                        sentenceData.separateWords,
+                        sentenceData.pinyin
+                    );
+
+                    const completion = await this.openai.chat.completions.parse({
+                        model: this.model || "qwen3-max",
+                        messages: [
+                            { role: "system", content: "You are a helpful translator and language expert and teacher." },
+                            { role: "user", content: prompt }
+                        ],
+                        response_format: zodResponseFormat(GlossFromMorphemesSchema, "glossFromChineseMorphemes")
+                    });
+
+                    const parsed = completion.choices[0].message.parsed;
+                    if (!parsed) {
+                        throw new Error("From glossFromMorphemes(zh): Failed to parse gloss response.");
+                    }
+
+                    const glossedWords = parsed.glossedWords.map((word) => word.trim());
+                    if (glossedWords.length !== sentenceData.separateWords.length) {
+                        throw new Error("From glossFromMorphemes(zh): Gloss length does not match morpheme length.");
+                    }
+
+                    if (glossedWords.some((word) => word.length === 0)) {
+                        throw new Error("From glossFromMorphemes(zh): Empty gloss received.");
+                    }
+
+                    return {
+                        separateWords: sentenceData.separateWords,
+                        pinyin: sentenceData.pinyin,
+                        glossedWords
+                    };
+                })
+            );
+
+            return glossedSentences;
+        }
+
+        const glossedSentences = await Promise.all(
+            morphemeData.sentences.map(async (sentenceData) => {
+                const prompt = glossFromAlphabeticMorphemesPrompt(
+                    normalizedTargetLang,
+                    morphemeData.sourceLang,
+                    sentenceData.originalSentence,
+                    sentenceData.separateWords
+                );
+
+                const completion = await this.openai.chat.completions.parse({
+                    model: this.model || "qwen3-max",
+                    messages: [
+                        { role: "system", content: "You are a helpful translator and language expert and teacher." },
+                        { role: "user", content: prompt }
+                    ],
+                    response_format: zodResponseFormat(GlossFromMorphemesSchema, "glossFromAlphabeticMorphemes")
+                });
+
+                const parsed = completion.choices[0].message.parsed;
+                if (!parsed) {
+                    throw new Error("From glossFromMorphemes(alphabetic): Failed to parse gloss response.");
+                }
+
+                const glossedWords = parsed.glossedWords.map((word) => word.trim());
+                if (glossedWords.length !== sentenceData.separateWords.length) {
+                    throw new Error("From glossFromMorphemes(alphabetic): Gloss length does not match morpheme length.");
+                }
+
+                if (glossedWords.some((word) => word.length === 0)) {
+                    throw new Error("From glossFromMorphemes(alphabetic): Empty gloss received.");
+                }
+
+                return {
+                    originalText: sentenceData.separateWords,
+                    glossedWords
+                };
+            })
+        );
+
+        return glossedSentences;
     }
 
     async translateText(text: string, l1: string, l2: string): Promise<string> {
