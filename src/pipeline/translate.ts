@@ -1,36 +1,38 @@
 import { randomUUIDv7 } from "bun";
 import OpenAI from "openai";
+import { createAudioFileFromText } from "../providers/audio.provider";
 import { OpenAIProvider } from "../providers/openai.providers";
+import { supportedVoices } from "../schemas/voices";
 import type { GlossedChineseSentence } from "../schemas/chineseResponse";
 import type { GrammarArray } from "../schemas/grammar";
 import type { TextToTranslateRequest } from "../schemas/request";
-import type { GlossedSentence, TextResponse } from "../schemas/response";
-import { createAudioFileFromText } from "../providers/audio.provider";
+import type { GlossedSentence, SourceAudio, TextResponse } from "../schemas/response";
 
 export interface UnifiedTranslationInput {
     text: string;
     sourceLang: string;
     targetLanguages: string[];
+    sourceAudioText?: string;
 }
 
 export interface UnifiedTranslationOptions {
     detectSourceLanguage?: boolean;
     includeGrammar?: boolean;
     continueOnTargetError?: boolean;
+    generateSourceAudio?: boolean;
+    audioOutputDir?: string;
+    audioBaseName?: string;
 }
 
 export interface UnifiedTranslationResult {
     translatedText: string[];
     glossedText: GlossedSentence[] | GlossedChineseSentence[];
     grammarPoints?: GrammarArray;
+    sourceAudio?: SourceAudio;
 }
 
 function normalizeLanguageCode(lang: string): string {
     return lang.trim().toLowerCase();
-}
-
-function shouldUsePrimaryModel(languages: string[]): boolean {
-    return languages.some((lang) => lang === "zh" || lang === "vi");
 }
 
 function getSentences(text: string, lang: string): string[] {
@@ -48,12 +50,66 @@ function getSentences(text: string, lang: string): string[] {
     return fallback ? [fallback] : [];
 }
 
-function createOpenAIProvider(sourceLang: string, targetLangs: string[]): OpenAIProvider {
+function createOpenAIProvider(_sourceLang: string, _targetLangs: string[]): OpenAIProvider {
     const openai = new OpenAI({
         apiKey: process.env.AI_KEY,
         baseURL: process.env.AI_BASE_URL
-    });;
+    });
+
     return new OpenAIProvider(openai, process.env.AI_MODEL);
+}
+
+async function generateSourceAudio(args: {
+    sourceLang: string;
+    text: string;
+    strict: boolean;
+    outputDir?: string;
+    baseName?: string;
+}): Promise<SourceAudio | undefined> {
+    const cleanText = args.text.trim();
+    if (!cleanText) {
+        if (args.strict) {
+            throw new Error("Audio generation requires non-empty source text.");
+        }
+        return undefined;
+    }
+
+    if (!process.env.ELEVENLABS_KEY) {
+        if (args.strict) {
+            throw new Error("ELEVENLABS_KEY is not configured.");
+        }
+        return undefined;
+    }
+
+    const voiceId = supportedVoices[args.sourceLang];
+    if (!voiceId) {
+        if (args.strict) {
+            throw new Error(`No voiceId configured for source language: ${args.sourceLang}`);
+        }
+        return undefined;
+    }
+
+    try {
+        const audio = await createAudioFileFromText(cleanText, voiceId, {
+            outputDir: args.outputDir,
+            baseName: args.baseName
+        });
+
+        return {
+            mp3File: audio.mp3File,
+            timestampsFile: audio.timestampsFile,
+            voiceId,
+            sourceLang: args.sourceLang,
+            alignment: audio.alignment
+        };
+    } catch (error) {
+        if (args.strict) {
+            throw error;
+        }
+
+        console.error("Audio generation failed:", error);
+        return undefined;
+    }
 }
 
 async function runTranslationPipeline(
@@ -66,7 +122,6 @@ async function runTranslationPipeline(
         const targetLang = normalizeLanguageCode(input.l1);
         const provider = createOpenAIProvider(sourceLang, [targetLang]);
         const sentences = getSentences(input.text, sourceLang);
-        const voceId = "21m00Tcm4TlvDq8ikWAM"; // Voz en inglés, puedes cambiarla según el idioma o preferencia
 
         if (sentences.length === 0) {
             throw new Error("From runTranslationPipeline: No sentences found in input text.");
@@ -80,32 +135,35 @@ async function runTranslationPipeline(
             }
         }
 
-        const translatedText = await Promise.all(
-            sentences.map((sentence) => provider.translateText(sentence, targetLang, sourceLang))
-        );
-        const audioFiles = await Promise.all(
-            sentences.map((sentence) => createAudioFileFromText(sentence, voceId))
-        );
+        const [translatedText, glossedText, sourceAudio] = await Promise.all([
+            Promise.all(
+                sentences.map((sentence) => provider.translateText(sentence, targetLang, sourceLang))
+            ),
+            sourceLang === "zh"
+                ? Promise.all(sentences.map((sentence) => provider.glossChineseText(sentence, targetLang)))
+                : Promise.all(sentences.map((sentence) => provider.glossText(sentence, targetLang, sourceLang))),
+            generateSourceAudio({
+                sourceLang,
+                text: input.text,
+                strict: false
+            })
+        ]);
 
-        const glossedText = sourceLang === "zh"
-            ? await Promise.all(sentences.map((sentence) => provider.glossChineseText(sentence, targetLang)))
-            : await Promise.all(sentences.map((sentence) => provider.glossText(sentence, targetLang, sourceLang)));
-
-        if (grammar) {
-            const grammarPoints = await provider.getGrammarPoints(input.text, targetLang, sourceLang);
-            return {
-                request_id: randomUUIDv7(),
-                translatedText,
-                glossedText,
-                grammarPoints
-            };
-        }
-
-        return {
+        const response: TextResponse = {
             request_id: randomUUIDv7(),
             translatedText,
             glossedText
         };
+
+        if (grammar) {
+            response.grammarPoints = await provider.getGrammarPoints(input.text, targetLang, sourceLang);
+        }
+
+        if (sourceAudio) {
+            response.sourceAudio = sourceAudio;
+        }
+
+        return response;
     } catch (error) {
         console.error("Error detallado:", JSON.stringify(error, null, 2));
         throw error;
@@ -149,9 +207,18 @@ async function runUnifiedTranslationPipeline(
     }
 
     const morphemeData = await provider.separateMorphemes(input.text, sourceLang);
-
     const includeGrammar = Boolean(options.includeGrammar);
     const continueOnTargetError = options.continueOnTargetError !== false;
+
+    const sourceAudio = options.generateSourceAudio
+        ? await generateSourceAudio({
+            sourceLang,
+            text: input.sourceAudioText?.trim() || input.text,
+            strict: true,
+            outputDir: options.audioOutputDir,
+            baseName: options.audioBaseName
+        })
+        : undefined;
 
     const resultEntries = await Promise.all(
         targetLanguages.map(async (targetLang) => {
@@ -173,6 +240,10 @@ async function runUnifiedTranslationPipeline(
 
                 if (grammarPoints) {
                     result.grammarPoints = grammarPoints;
+                }
+
+                if (sourceAudio) {
+                    result.sourceAudio = sourceAudio;
                 }
 
                 return [targetLang, result] as const;

@@ -23,12 +23,20 @@ interface OutputTarget {
   lang: string;
 }
 
+interface OutputSourceAudio {
+  mp3File: string;
+  timestampsFile: string;
+  voiceId: string;
+  sourceLang: string;
+}
+
 type GlossedOutput = GlossedSentence[] | GlossedChineseSentence[];
 
 interface InterlinearDoc {
   id: string;
   source: OutputSource;
   motherTongue: OutputTarget;
+  sourceAudio: OutputSourceAudio;
   text: string;
   translatedText: string[];
   glossedText: GlossedOutput;
@@ -44,7 +52,8 @@ const CONFIG = {
   targetLanguages: ["en", "es", "pt", "vi"],
   includeGrammar: true,
   detectSourceLanguage: false,
-  continueOnTargetError: true
+  continueOnTargetError: true,
+  outputDir: process.cwd()
 };
 
 const pad = (num: number): string => num.toString().padStart(2, "0");
@@ -83,9 +92,20 @@ const parseVerses = (rawText: string): { number: number; text: string }[] => {
   return verses;
 };
 
+function buildChunkBaseName(
+  sourceLang: string,
+  bookName: string,
+  chapter: number,
+  verseStart: number,
+  verseEnd: number
+): string {
+  return `bible.${sourceLang}.${bookName}.${pad(chapter)}.${pad(verseStart)}-${pad(verseEnd)}`;
+}
+
 function buildInterlinearDoc(args: {
   sourceLang: string;
   targetLang: string;
+  sourceAudio: OutputSourceAudio;
   text: string;
   translatedText: string[];
   glossedText: GlossedOutput;
@@ -113,6 +133,7 @@ function buildInterlinearDoc(args: {
       }
     },
     motherTongue: { lang: args.targetLang },
+    sourceAudio: args.sourceAudio,
     text: args.text,
     translatedText: args.translatedText,
     glossedText: args.glossedText,
@@ -132,6 +153,8 @@ async function processBibleBook(
   model: string
 ) {
   try {
+    fs.mkdirSync(CONFIG.outputDir, { recursive: true });
+
     const rawContent = fs.readFileSync(filePath, "utf-8");
     const verses = parseVerses(rawContent);
     console.log(`Found ${verses.length} verses in ${bookName}.`);
@@ -141,6 +164,8 @@ async function processBibleBook(
       const verseStart = chunk[0].number;
       const verseEnd = chunk[chunk.length - 1].number;
       const combinedText = chunk.map((verse) => `${verse.number} ${verse.text}`).join(" ");
+      const chunkTextForAudio = chunk.map((verse) => verse.text).join(" ");
+      const chunkBaseName = buildChunkBaseName(sourceLang, bookName, chapter, verseStart, verseEnd);
 
       console.log(
         `Processing ${bookName} ${chapter}:${verseStart}-${verseEnd} for ${targetLanguages.join(", ")}`
@@ -150,19 +175,33 @@ async function processBibleBook(
         {
           text: combinedText,
           sourceLang,
-          targetLanguages
+          targetLanguages,
+          sourceAudioText: chunkTextForAudio
         },
         {
           detectSourceLanguage: CONFIG.detectSourceLanguage,
           includeGrammar: CONFIG.includeGrammar,
-          continueOnTargetError: CONFIG.continueOnTargetError
+          continueOnTargetError: CONFIG.continueOnTargetError,
+          generateSourceAudio: true,
+          audioOutputDir: CONFIG.outputDir,
+          audioBaseName: chunkBaseName
         }
       );
 
       for (const [targetLang, translatedDoc] of docsByLanguage.entries()) {
+        if (!translatedDoc.sourceAudio) {
+          throw new Error(`Missing source audio for ${bookName} ${chapter}:${verseStart}-${verseEnd}.`);
+        }
+
         const finalDoc = buildInterlinearDoc({
           sourceLang,
           targetLang,
+          sourceAudio: {
+            mp3File: translatedDoc.sourceAudio.mp3File,
+            timestampsFile: translatedDoc.sourceAudio.timestampsFile,
+            voiceId: translatedDoc.sourceAudio.voiceId,
+            sourceLang: translatedDoc.sourceAudio.sourceLang
+          },
           text: combinedText,
           translatedText: translatedDoc.translatedText,
           glossedText: translatedDoc.glossedText,
@@ -176,8 +215,9 @@ async function processBibleBook(
         });
 
         const fileName = `${finalDoc.id}.json`;
-        fs.writeFileSync(fileName, JSON.stringify(finalDoc, null, 2));
-        console.log(`Generated file: ${fileName}`);
+        const outputPath = path.join(CONFIG.outputDir, fileName);
+        fs.writeFileSync(outputPath, JSON.stringify(finalDoc, null, 2));
+        console.log(`Generated file: ${outputPath}`);
       }
     }
   } catch (error) {
@@ -196,6 +236,6 @@ processBibleBook(
   1,
   CONFIG.sourceLang,
   CONFIG.targetLanguages,
-  "FEB",
+  CONFIG.version,
   "qwen"
 );

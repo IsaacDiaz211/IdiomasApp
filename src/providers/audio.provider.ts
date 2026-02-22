@@ -1,67 +1,106 @@
-import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
-import type { CharacterAlignmentResponseModel } from '@elevenlabs/elevenlabs-js/api';
+import { promises as fs } from "fs";
+import * as path from "path";
 import { randomUUIDv7 } from "bun";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import type { CharacterAlignmentResponseModel } from "@elevenlabs/elevenlabs-js/api";
 
-// 1. Definimos la interfaz exacta que devuelve el SDK para evitar conflictos manuales
-interface AlignmentData {
+export interface AlignmentData {
     characters: string[];
     character_start_times_seconds: number[];
     character_end_times_seconds: number[];
 }
 
-interface AudioResult {
-    fileName: string;
-    alignment: AlignmentData | null; 
+export interface AudioResult {
+    mp3File: string;
+    mp3Path: string;
+    timestampsFile: string;
+    timestampsPath: string;
+    alignment: AlignmentData | null;
 }
 
-function mapAlignmentData(
-    alignment?: CharacterAlignmentResponseModel
-): AlignmentData | null {
-    if (!alignment) return null;
+interface CreateAudioFileOptions {
+    outputDir?: string;
+    baseName?: string;
+}
+
+function mapAlignmentData(alignment?: CharacterAlignmentResponseModel): AlignmentData | null {
+    if (!alignment) {
+        return null;
+    }
 
     return {
         characters: alignment.characters,
         character_start_times_seconds: alignment.characterStartTimesSeconds,
-        character_end_times_seconds: alignment.characterEndTimesSeconds,
+        character_end_times_seconds: alignment.characterEndTimesSeconds
     };
 }
 
-export async function createAudioFileFromText(text: string, voiceId: string): Promise<AudioResult> {
-    // Es buena práctica inicializar el cliente fuera de la función si es posible, 
-    // pero aquí dentro está bien si el contexto cambia.
+function resolveBaseName(baseName?: string): string {
+    const raw = (baseName ?? "").trim();
+    if (!raw) {
+        return randomUUIDv7();
+    }
+
+    const sanitized = raw.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_");
+    return sanitized.length > 0 ? sanitized : randomUUIDv7();
+}
+
+export async function createAudioFileFromText(
+    text: string,
+    voiceId: string,
+    options: CreateAudioFileOptions = {}
+): Promise<AudioResult> {
+    const cleanText = text.trim();
+    if (!cleanText) {
+        throw new Error("createAudioFileFromText requires non-empty text.");
+    }
+
+    if (!process.env.ELEVENLABS_KEY) {
+        throw new Error("ELEVENLABS_KEY is not configured.");
+    }
+
     const client = new ElevenLabsClient({
-        apiKey: process.env.ELEVENLABS_KEY,
+        apiKey: process.env.ELEVENLABS_KEY
     });
 
-    try {
-        const response = await client.textToSpeech.convertWithTimestamps(voiceId, {
-            modelId: 'eleven_multilingual_v2',
-            text,
-            outputFormat: "mp3_44100_128",
-            // Asegúrate que tu versión del SDK soporte estos settings dentro de convertWithTimestamps
-            // Si te da error aquí, muévelos al nivel superior o revisa la doc de tu versión específica
-            voiceSettings: {
-                stability: 0,
-                similarityBoost: 0,
-                useSpeakerBoost: true,
-                speed: 1.0,
-            },
-        });
+    const outputDir = options.outputDir ? path.resolve(options.outputDir) : process.cwd();
+    await fs.mkdir(outputDir, { recursive: true });
 
-        // El audio viene en base64, lo convertimos a Buffer
-        const audioBuffer = Buffer.from(response.audioBase64, 'base64');
-        
-        const fileName = `${randomUUIDv7()}.mp3`;
+    const baseName = resolveBaseName(options.baseName);
+    const mp3File = `${baseName}.mp3`;
+    const timestampsFile = `${baseName}.timestamps.json`;
+    const mp3Path = path.join(outputDir, mp3File);
+    const timestampsPath = path.join(outputDir, timestampsFile);
 
-        await Bun.write(fileName, audioBuffer);
+    const response = await client.textToSpeech.convertWithTimestamps(voiceId, {
+        modelId: "eleven_multilingual_v2",
+        text: cleanText,
+        outputFormat: "mp3_44100_128",
+        voiceSettings: {
+            stability: 0,
+            similarityBoost: 0,
+            useSpeakerBoost: true,
+            speed: 1
+        }
+    });
 
-        return {
-            fileName,
-            alignment: mapAlignmentData(response.alignment),
-        };
+    const audioBuffer = Buffer.from(response.audioBase64, "base64");
+    await Bun.write(mp3Path, audioBuffer);
 
-    } catch (error) {
-        console.error("Error en ElevenLabs:", error);
-        throw error;
-    }
-};
+    const alignment = mapAlignmentData(response.alignment);
+    const timestampPayload = {
+        voiceId,
+        text: cleanText,
+        alignment,
+        generatedAt: new Date().toISOString()
+    };
+    await Bun.write(timestampsPath, JSON.stringify(timestampPayload, null, 2));
+
+    return {
+        mp3File,
+        mp3Path,
+        timestampsFile,
+        timestampsPath,
+        alignment
+    };
+}
