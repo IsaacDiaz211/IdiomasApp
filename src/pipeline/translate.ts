@@ -48,25 +48,11 @@ function getSentences(text: string, lang: string): string[] {
 }
 
 function createOpenAIProvider(sourceLang: string, targetLangs: string[]): OpenAIProvider {
-    const normalizedLanguages = [sourceLang, ...targetLangs].map(normalizeLanguageCode);
-    const usePrimaryModel =
-        shouldUsePrimaryModel(normalizedLanguages) ||
-        !process.env.OPEN_ROUTER_KEY ||
-        !process.env.OPEN_ROUTER_BASE_URL;
-
-    if (usePrimaryModel) {
-        const openai = new OpenAI({
-            apiKey: process.env.AI_KEY,
-            baseURL: process.env.AI_BASE_URL
-        });
-        return new OpenAIProvider(openai, process.env.AI_MODEL);
-    }
-
     const openai = new OpenAI({
-        apiKey: process.env.OPEN_ROUTER_KEY,
-        baseURL: process.env.OPEN_ROUTER_BASE_URL
-    });
-    return new OpenAIProvider(openai, process.env.TRINITY_MODEL);
+        apiKey: process.env.AI_KEY,
+        baseURL: process.env.AI_BASE_URL
+    });;
+    return new OpenAIProvider(openai, process.env.AI_MODEL);
 }
 
 async function runTranslationPipeline(
