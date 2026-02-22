@@ -5,6 +5,7 @@ import type { GlossedChineseSentence } from "../schemas/chineseResponse";
 import type { GrammarArray } from "../schemas/grammar";
 import type { TextToTranslateRequest } from "../schemas/request";
 import type { GlossedSentence, TextResponse } from "../schemas/response";
+import { createAudioFileFromText } from "../providers/audio.provider";
 
 export interface UnifiedTranslationInput {
     text: string;
@@ -65,6 +66,7 @@ async function runTranslationPipeline(
         const targetLang = normalizeLanguageCode(input.l1);
         const provider = createOpenAIProvider(sourceLang, [targetLang]);
         const sentences = getSentences(input.text, sourceLang);
+        const voceId = "21m00Tcm4TlvDq8ikWAM"; // Voz en inglés, puedes cambiarla según el idioma o preferencia
 
         if (sentences.length === 0) {
             throw new Error("From runTranslationPipeline: No sentences found in input text.");
@@ -80,6 +82,9 @@ async function runTranslationPipeline(
 
         const translatedText = await Promise.all(
             sentences.map((sentence) => provider.translateText(sentence, targetLang, sourceLang))
+        );
+        const audioFiles = await Promise.all(
+            sentences.map((sentence) => createAudioFileFromText(sentence, voceId))
         );
 
         const glossedText = sourceLang === "zh"
