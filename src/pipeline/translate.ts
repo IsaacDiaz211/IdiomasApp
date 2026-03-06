@@ -2,7 +2,7 @@ import { randomUUIDv7 } from "bun";
 import OpenAI from "openai";
 import { createAudioFileFromText } from "../providers/audio.provider";
 import { OpenAIProvider } from "../providers/openai.providers";
-import { supportedVoices } from "../schemas/voices";
+import { minimaxLanguageBoostByLang, supportedVoices } from "../schemas/voices";
 import type { GlossedChineseSentence } from "../schemas/chineseResponse";
 import type { GrammarArray } from "../schemas/grammar";
 import type { TextToTranslateRequest } from "../schemas/request";
@@ -74,9 +74,9 @@ async function generateSourceAudio(args: {
         return undefined;
     }
 
-    if (!process.env.ELEVENLABS_KEY) {
+    if (!process.env.MINIMAX_API_KEY) {
         if (args.strict) {
-            throw new Error("ELEVENLABS_KEY is not configured.");
+            throw new Error("MINIMAX_API_KEY is not configured.");
         }
         return undefined;
     }
@@ -90,9 +90,11 @@ async function generateSourceAudio(args: {
     }
 
     try {
+        const languageBoost = minimaxLanguageBoostByLang[args.sourceLang] || "auto";
         const audio = await createAudioFileFromText(cleanText, voiceId, {
             outputDir: args.outputDir,
-            baseName: args.baseName
+            baseName: args.baseName,
+            languageBoost
         });
 
         return {
@@ -100,7 +102,8 @@ async function generateSourceAudio(args: {
             timestampsFile: audio.timestampsFile,
             voiceId,
             sourceLang: args.sourceLang,
-            alignment: audio.alignment
+            timestampsFormat: audio.timestampsFormat,
+            timestamps: audio.timestamps
         };
     } catch (error) {
         if (args.strict) {

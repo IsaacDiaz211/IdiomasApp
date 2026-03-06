@@ -31,29 +31,13 @@ const SentencesTranslatedSchema = z.object({
 
 export { SentencesTranslatedSchema };
 
-const AudioAlignmentSchema = z.object({
-  characters: z.array(z.string()),
-  character_start_times_seconds: z.array(z.number()),
-  character_end_times_seconds: z.array(z.number())
-}).superRefine((data, ctx) => {
-  if (
-    data.characters.length !== data.character_start_times_seconds.length ||
-    data.characters.length !== data.character_end_times_seconds.length
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["length"],
-      message: "audio alignment arrays must have the same length"
-    });
-  }
-});
-
 export const SourceAudioSchema = z.object({
   mp3File: z.string(),
   timestampsFile: z.string(),
   voiceId: z.string(),
   sourceLang: z.string(),
-  alignment: z.nullable(AudioAlignmentSchema)
+  timestampsFormat: z.optional(z.enum(["sentence", "character", "unknown"])),
+  timestamps: z.optional(z.unknown())
 });
 
 export type SourceAudio = z.infer<typeof SourceAudioSchema>;

@@ -44,9 +44,15 @@ interface InterlinearDoc {
   generatedAt: string;
   model: string;
 }
-
+/*
+Ingles -> WEBU  https://worldenglish.bible/
+Español —>   LBES  https://ebible.org/find/details.php?id=spabes
+Portugués —>  BLT   https://ebible.org/find/details.php?id=porblt
+Chino —>  FEB   https://ebible.org/find/details.php?id=cmnfeb
+Vietnamita —> BVERV
+*/
 const CONFIG = {
-  version: "WEB",
+  version: "FEB",
   chunkSize: 5,
   sourceLang: "zh",
   targetLanguages: ["en", "es", "pt", "vi"],

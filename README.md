@@ -252,6 +252,10 @@ Response when `l2` is `zh`:
 - `AI_KEY`: API key for the LLM provider.
 - `AI_BASE_URL`: Base URL for the LLM provider.
 - `AI_MODEL`: Model used for glossing and grammar extraction (defaults to `qwen3-max`).
+- `MINIMAX_API_KEY`: API key for MiniMax async TTS.
+- `MINIMAX_API_BASE_URL`: Optional MiniMax base URL (defaults to `https://api.minimax.io`).
+- `MINIMAX_TTS_MODEL`: Optional MiniMax TTS model override (defaults to `speech-2.8-turbo`).
+- `MINIMAX_VOICE_EN|ES|PT|ZH|VI`: Optional voice overrides per source language.
 - `PLAY_INTEGRITY_PACKAGE_NAME`: Android package name used for Play Integrity validation.
 - `GOOGLE_SERVICE_ACCOUNT_JSON`: Service account JSON (stringified) with Play Integrity access.
 - `ATTESTATION_JWT_SECRET`: Secret used to sign short-lived access tokens.
